@@ -1,0 +1,14 @@
+# serializer version: 1
+# name: test_formatter_snapshot
+  list([
+    '''
+      📬 *04/24 18:00 기준 · 04/24 15:00 \~ 04/24 18:00 요약*
+      
+      *🔴 1\. 삼성전자 4Q 실적 서프라이즈*
+      전년 대비 20% 증가\. 반도체 반등이 주효\.
+      📈 *시세*
+      • 삼성전자 \(005930\): 72,400원 \(\+1\.2%\)
+      🔗 [FastStockNews](https://t.me/FastStockNews/123)
+    ''',
+  ])
+# ---
