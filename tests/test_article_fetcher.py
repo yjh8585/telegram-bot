@@ -1,4 +1,5 @@
 """ArticleFetcher: URL 캐시 히트/미스 동작 검증."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,9 +13,10 @@ def test_cache_hit_skips_network(tmp_path: Path) -> None:
     state = StateRepository(tmp_path / "s.db")
     fetcher = ArticleFetcher(state)
 
-    with patch("src.services.article_fetcher.trafilatura.fetch_url") as fetch_url, patch(
-        "src.services.article_fetcher.trafilatura.extract"
-    ) as extract:
+    with (
+        patch("src.services.article_fetcher.trafilatura.fetch_url") as fetch_url,
+        patch("src.services.article_fetcher.trafilatura.extract") as extract,
+    ):
         fetch_url.return_value = "<html>...</html>"
         extract.return_value = '{"title": "제목", "text": "본문"}'
 
@@ -49,9 +51,10 @@ def test_url_fragment_is_normalized(tmp_path: Path) -> None:
     state = StateRepository(tmp_path / "s.db")
     fetcher = ArticleFetcher(state)
 
-    with patch("src.services.article_fetcher.trafilatura.fetch_url") as fetch_url, patch(
-        "src.services.article_fetcher.trafilatura.extract"
-    ) as extract:
+    with (
+        patch("src.services.article_fetcher.trafilatura.fetch_url") as fetch_url,
+        patch("src.services.article_fetcher.trafilatura.extract") as extract,
+    ):
         fetch_url.return_value = "<html/>"
         extract.return_value = '{"title": "t", "text": "b"}'
 

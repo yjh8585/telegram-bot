@@ -1,4 +1,5 @@
 """sentence-transformers 기반 사전 클러스터링(LLM 호출 전 토큰 절감)."""
+
 from __future__ import annotations
 
 from typing import cast
@@ -43,9 +44,7 @@ def _union_find_groups(similarity: NDArray[np.float32], threshold: float) -> lis
 class PreClusterService:
     """임베딩 기반 사전 클러스터링. cosine 유사도 threshold 이상을 병합."""
 
-    def __init__(
-        self, threshold: float, model_name: str = DEFAULT_MODEL_NAME
-    ) -> None:
+    def __init__(self, threshold: float, model_name: str = DEFAULT_MODEL_NAME) -> None:
         self._threshold = threshold
         self._model = SentenceTransformer(model_name)
 
@@ -53,9 +52,7 @@ class PreClusterService:
         if not messages:
             return []
         texts = [m.combined_text for m in messages]
-        embeddings = self._model.encode(
-            texts, normalize_embeddings=True, convert_to_numpy=True
-        )
+        embeddings = self._model.encode(texts, normalize_embeddings=True, convert_to_numpy=True)
         sim = cast(NDArray[np.float32], embeddings @ embeddings.T)
         groups = _union_find_groups(sim, self._threshold)
         clusters = [self._build_cluster([messages[i] for i in idxs]) for idxs in groups]

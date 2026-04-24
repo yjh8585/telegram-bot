@@ -5,6 +5,7 @@
     python -m src.main --window morning       # 특정 슬롯 강제
     python -m src.main --dry-run              # DM 발송·state 갱신 생략
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,7 +17,7 @@ from anthropic import Anthropic
 from loguru import logger
 
 from src.config import Settings, get_settings
-from src.dtos import ClusteredTopic, OutboundBlock, RawMessage, Ticker
+from src.dtos import ClusteredTopic, Market, OutboundBlock, RawMessage, Ticker
 from src.logger import setup_logger
 from src.repositories.state_repo import StateRepository
 from src.repositories.telethon_repo import TelethonRepository
@@ -49,7 +50,7 @@ def _resolve_window(choice: str) -> Window:
     return window_by_label(cast(WindowLabel, choice))
 
 
-def _guess_market(code: str) -> str:
+def _guess_market(code: str) -> Market:
     if code.isdigit() and len(code) == 6:
         return "KR"
     if "/" in code:
@@ -60,10 +61,7 @@ def _guess_market(code: str) -> str:
 def _build_blocks(topics: list[ClusteredTopic], stock: StockService) -> list[OutboundBlock]:
     blocks: list[OutboundBlock] = []
     for topic in topics:
-        tickers = [
-            Ticker(code=code, market=cast(str, _guess_market(code)))  # type: ignore[arg-type]
-            for code in topic.tickers
-        ]
+        tickers = [Ticker(code=code, market=_guess_market(code)) for code in topic.tickers]
         quotes = stock.fetch_quotes(tickers)
         blocks.append(OutboundBlock(topic=topic, quotes=quotes))
     return blocks

@@ -2,6 +2,7 @@
 
 사전 조건: 먼저 Telegram 앱에서 내가 그 봇에게 아무 메시지나 1회 보내야 함.
 """
+
 from __future__ import annotations
 
 import asyncio

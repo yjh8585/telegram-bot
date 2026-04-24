@@ -1,7 +1,8 @@
 """DedupeSummarizerService: Claude 응답 파싱·빈 입력·잘못된 JSON 처리."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from src.dtos import EnrichedMessage, PreCluster, RawMessage
@@ -13,7 +14,7 @@ def _enriched(channel: str, mid: int, text: str) -> EnrichedMessage:
         raw=RawMessage(
             channel_username=channel,
             message_id=mid,
-            posted_at=datetime(2026, 4, 24, tzinfo=timezone.utc),
+            posted_at=datetime(2026, 4, 24, tzinfo=UTC),
             text=text,
         )
     )

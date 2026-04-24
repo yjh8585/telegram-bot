@@ -1,4 +1,5 @@
 """KST 기준 4개 발송 window 판정."""
+
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta

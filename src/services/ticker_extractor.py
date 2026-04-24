@@ -1,4 +1,5 @@
 """티커 추출: 1차 정규식·KRX 종목명 사전, 2차 Claude JSON 폴백."""
+
 from __future__ import annotations
 
 import json
@@ -33,7 +34,7 @@ _MIN_NAME_LEN = 2
 _LLM_MAX_TOKENS = 400
 _LLM_PROMPT = (
     "다음 한국어 텍스트에서 언급된 주식·암호자산 티커를 모두 찾아 JSON 배열로만 응답하세요.\n"
-    "각 원소는 {\"code\": \"...\", \"market\": \"KR|US|CRYPTO\", \"name\": \"...\"} 구조.\n"
+    '각 원소는 {"code": "...", "market": "KR|US|CRYPTO", "name": "..."} 구조.\n'
     "- 한국 종목: code는 6자리 숫자, name은 한국어 종목명.\n"
     "- 미국 종목: code는 티커 심볼(대문자), name은 기업명(영문 또는 한국어).\n"
     "- 암호자산: code는 '<심볼>/KRW' (예: BTC/KRW).\n"

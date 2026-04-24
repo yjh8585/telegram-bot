@@ -1,4 +1,5 @@
 """Telegram MarkdownV2 메시지 빌더 + 4096자 제한 분할."""
+
 from __future__ import annotations
 
 from src.dtos import OutboundBlock, StockQuote
@@ -52,9 +53,7 @@ def _fmt_topic(index: int, block: OutboundBlock) -> str:
         lines.append("📈 *" + escape_md("시세") + "*")
         lines.extend(_fmt_quote_line(q) for q in block.quotes)
     if topic.sources:
-        link_parts = [
-            f"[{escape_md(s.channel_username)}]({s.url})" for s in topic.sources
-        ]
+        link_parts = [f"[{escape_md(s.channel_username)}]({s.url})" for s in topic.sources]
         lines.append("🔗 " + ", ".join(link_parts))
     return "\n".join(lines)
 

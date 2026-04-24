@@ -1,4 +1,5 @@
 """티커 추출기 단위 테스트: 정규식·사전·코인 키워드."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -9,9 +10,7 @@ from src.services.ticker_extractor import TickerExtractor
 def _mock_dict(name_to_code: dict[str, str]) -> MagicMock:
     m = MagicMock()
     m.code_of.side_effect = lambda n: name_to_code.get(n)
-    m.name_of.side_effect = lambda c: next(
-        (n for n, cc in name_to_code.items() if cc == c), None
-    )
+    m.name_of.side_effect = lambda c: next((n for n, cc in name_to_code.items() if cc == c), None)
     m.names.return_value = list(name_to_code.keys())
     return m
 

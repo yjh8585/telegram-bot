@@ -1,4 +1,5 @@
 """pydantic v2 기반 DTO."""
+
 from __future__ import annotations
 
 from datetime import date, datetime

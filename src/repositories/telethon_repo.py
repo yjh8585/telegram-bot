@@ -1,4 +1,5 @@
 """Telethon(MTProto user session) 기반 채널 메시지 수집 저장소."""
+
 from __future__ import annotations
 
 import asyncio

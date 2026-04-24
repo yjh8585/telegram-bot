@@ -1,4 +1,5 @@
 """뉴스 URL 본문 추출 + SQLite URL 캐시."""
+
 from __future__ import annotations
 
 import hashlib

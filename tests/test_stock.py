@@ -1,4 +1,5 @@
 """StockService: FDR mock으로 시세·등락률·실패 graceful degrade 검증."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -57,9 +58,7 @@ def test_single_row_no_change_pct() -> None:
 
 def test_dedupe_same_code_market() -> None:
     svc = StockService(max_retries=1, wait_base=0)
-    with patch(
-        "src.services.stock.fdr.DataReader", return_value=_df([100.0, 101.0])
-    ) as m:
+    with patch("src.services.stock.fdr.DataReader", return_value=_df([100.0, 101.0])) as m:
         svc.fetch_quotes(
             [
                 Ticker(code="005930", market="KR"),
@@ -71,9 +70,7 @@ def test_dedupe_same_code_market() -> None:
 
 def test_exception_returns_empty() -> None:
     svc = StockService(max_retries=2, wait_base=0)
-    with patch(
-        "src.services.stock.fdr.DataReader", side_effect=RuntimeError("network err")
-    ) as m:
+    with patch("src.services.stock.fdr.DataReader", side_effect=RuntimeError("network err")) as m:
         quotes = svc.fetch_quotes([Ticker(code="005930", market="KR")])
     assert quotes == []
     # max_retries=2 → 총 2회 호출

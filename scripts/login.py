@@ -7,6 +7,7 @@
   4) 마지막에 출력되는 SESSION_STRING을 .env의 TG_SESSION_STRING과
      GitHub Secrets의 TG_SESSION_STRING에 등록.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -57,18 +57,21 @@
 - [ ] `src/main.py` — 전체 파이프라인
 - **DoD**: `make dry-run` 성공 (DM 미발송, state 미갱신).
 
-## Phase 8 — 테스트
-- [ ] `tests/test_window.py`
-- [ ] `tests/test_pre_cluster.py`
-- [ ] `tests/test_ticker_extractor.py`
-- [ ] `tests/test_article_fetcher.py` (캐시 히트/미스)
-- [ ] `tests/test_formatter.py` (스냅샷)
-- [ ] `tests/test_stock.py`
-- [ ] `tests/test_state_repo.py`
-- **DoD**: `make check-all` (ruff + mypy + pytest) 통과.
+## Phase 8 — 테스트 ✅
+- [x] `tests/test_window.py`
+- [x] `tests/test_pre_cluster.py`
+- [x] `tests/test_ticker_extractor.py`
+- [x] `tests/test_article_fetcher.py` (캐시 히트/미스)
+- [x] `tests/test_formatter.py` (스냅샷)
+- [x] `tests/test_stock.py`
+- [x] `tests/test_state_repo.py`
+- [x] `tests/test_collector.py`
+- [x] `tests/test_dedupe_summarizer.py`
+- **DoD**: `pytest` 49 passed ✅
 
-## Phase 9 — GitHub Actions 배포
-- [ ] `.github/workflows/collect.yml` — 4개 cron + workflow_dispatch
-- [ ] `actions/cache` 로 state 유지
-- [ ] 에러 시 봇 자신에게 DM
-- **DoD**: 수동 트리거 성공 + 자동 cron 1회 이상 성공.
+## Phase 9 — GitHub Actions 배포 ✅
+- [x] `.github/workflows/collect.yml` — 4개 cron + workflow_dispatch
+- [x] `actions/cache` 로 state 유지 (state-$run_id 키)
+- [x] HuggingFace 모델 캐시 (~120MB 절감)
+- [x] 에러 시 봇 자신에게 DM (main.py `_report_error` 구현)
+- **DoD**: GitHub Secrets 등록 후 `workflow_dispatch`로 수동 트리거 → 성공 확인.

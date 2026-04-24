@@ -1,4 +1,5 @@
 """KRX 종목명 ↔ 6자리 코드 사전. FinanceDataReader 기반, 하루 1회 갱신."""
+
 from __future__ import annotations
 
 import json
@@ -68,6 +69,4 @@ class TickerDict:
             "code_to_name": self._code_to_name,
             "name_to_code": self._name_to_code,
         }
-        self._cache_path.write_text(
-            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
-        )
+        self._cache_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")

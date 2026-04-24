@@ -1,11 +1,15 @@
 """loguru 기반 로거 + 민감정보 마스킹 패처."""
+
 from __future__ import annotations
 
 import re
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from loguru import Record
 
 # 토큰·api_hash·Claude 키·긴 base64(세션 문자열)를 로그에서 마스킹
 _SENSITIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -18,7 +22,7 @@ _MASK = "***MASKED***"
 _CONFIGURED = False
 
 
-def _mask_sensitive(record: dict[str, Any]) -> None:
+def _mask_sensitive(record: Record) -> None:
     """record['message']에 포함된 민감 문자열을 마스킹한다."""
     msg = record["message"]
     for pattern in _SENSITIVE_PATTERNS:

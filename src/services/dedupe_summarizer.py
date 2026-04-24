@@ -1,8 +1,9 @@
 """Claude Haiku 4.5 1회 호출로 PreCluster 리스트 → ClusteredTopic 리스트로 통합 요약."""
+
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from anthropic import Anthropic
 from loguru import logger
@@ -58,9 +59,7 @@ def _parse_topics(raw: str, clusters: list[PreCluster]) -> list[ClusteredTopic]:
         return []
     if not isinstance(arr, list):
         return []
-    return [
-        topic for topic in (_build_topic(item, clusters) for item in arr) if topic is not None
-    ]
+    return [topic for topic in (_build_topic(item, clusters) for item in arr) if topic is not None]
 
 
 def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None:
@@ -69,9 +68,10 @@ def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None
     cid = item.get("cluster_id")
     if not isinstance(cid, int) or cid < 0 or cid >= len(clusters):
         return None
-    importance = item.get("importance") or "medium"
-    if importance not in _VALID_IMPORTANCE:
-        importance = "medium"
+    raw_importance = item.get("importance") or "medium"
+    importance: Importance = (
+        cast(Importance, raw_importance) if raw_importance in _VALID_IMPORTANCE else "medium"
+    )
     sources: list[SourceRef] = clusters[cid].all_sources
     tickers = [str(t) for t in (item.get("tickers") or []) if isinstance(t, str)]
     return ClusteredTopic(

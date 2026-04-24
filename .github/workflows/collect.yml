@@ -1,0 +1,121 @@
+name: Telegram 채널 요약 수집·발송
+
+on:
+  # KST 기준 4회 실행 (UTC 변환)
+  #   KST 07:30 = UTC 22:30 (전일)
+  #   KST 11:00 = UTC 02:00
+  #   KST 15:00 = UTC 06:00
+  #   KST 18:00 = UTC 09:00
+  schedule:
+    - cron: "30 22 * * *"  # KST 07:30 (morning)
+    - cron: "0 2 * * *"    # KST 11:00 (late_morning)
+    - cron: "0 6 * * *"    # KST 15:00 (afternoon)
+    - cron: "0 9 * * *"    # KST 18:00 (evening)
+
+  workflow_dispatch:
+    inputs:
+      window:
+        description: "실행할 window (auto / morning / late_morning / afternoon / evening)"
+        required: false
+        default: "auto"
+      dry_run:
+        description: "dry-run 모드 (DM 미발송, state 미갱신)"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  STATE_CACHE_KEY_PREFIX: "state"
+  HF_CACHE_KEY_PREFIX: "huggingface"
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python ${{ env.PYTHON_VERSION }} 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: pip 캐시 설정
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: HuggingFace 모델 캐시 설정 (~120MB, sentence-transformers)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ env.HF_CACHE_KEY_PREFIX }}-${{ runner.os }}
+          restore-keys: |
+            ${{ env.HF_CACHE_KEY_PREFIX }}-
+
+      - name: state.db 캐시 복원 (run 간 last_seen 유지)
+        uses: actions/cache/restore@v4
+        id: state-restore
+        with:
+          path: state/state.db
+          key: ${{ env.STATE_CACHE_KEY_PREFIX }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.STATE_CACHE_KEY_PREFIX }}-
+
+      - name: state 디렉토리 생성
+        run: mkdir -p state
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: window 판정 (cron 실행 시 UTC 시간 기반 자동 선택)
+        id: resolve-window
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "window=${{ github.event.inputs.window }}" >> $GITHUB_OUTPUT
+          else
+            # UTC 현재 시간 기준 window 결정
+            HOUR=$(date -u +%H)
+            MINUTE=$(date -u +%M)
+            TIME=$((HOUR * 60 + MINUTE))
+            # UTC 22:30 → morning (KST 07:30)
+            # UTC 02:00 → late_morning (KST 11:00)
+            # UTC 06:00 → afternoon (KST 15:00)
+            # UTC 09:00 → evening (KST 18:00)
+            if   [ $TIME -ge 1350 ] || [ $TIME -lt 90 ];  then echo "window=morning"      >> $GITHUB_OUTPUT
+            elif [ $TIME -ge 90  ] && [ $TIME -lt 330 ]; then echo "window=late_morning"  >> $GITHUB_OUTPUT
+            elif [ $TIME -ge 330 ] && [ $TIME -lt 510 ]; then echo "window=afternoon"     >> $GITHUB_OUTPUT
+            else                                               echo "window=evening"       >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: 봇 실행
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BOT_CHAT_ID: ${{ secrets.BOT_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          WINDOW="${{ steps.resolve-window.outputs.window }}"
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          CMD="python -m src.main --window ${WINDOW:-auto}"
+          if [ "$DRY_RUN" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+          echo "실행 명령: $CMD"
+          $CMD
+
+      - name: state.db 캐시 저장 (성공·실패 무관하게 저장)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state/state.db
+          key: ${{ env.STATE_CACHE_KEY_PREFIX }}-${{ github.run_id }}

@@ -1,4 +1,5 @@
 """pre_cluster union-find 병합 로직 단위 테스트(임베딩 로드 없이)."""
+
 from __future__ import annotations
 
 import numpy as np

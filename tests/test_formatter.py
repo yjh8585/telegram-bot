@@ -1,4 +1,5 @@
 """formatter: MarkdownV2 이스케이프·토픽 조립·분할 검증 (syrupy 스냅샷 포함)."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -31,8 +32,7 @@ def _block(
             title=title,
             summary=summary,
             importance=importance,  # type: ignore[arg-type]
-            sources=sources
-            or [SourceRef(channel_username="FastStockNews", message_id=123)],
+            sources=sources or [SourceRef(channel_username="FastStockNews", message_id=123)],
             tickers=["005930"],
         ),
         quotes=quotes or [],
@@ -40,6 +40,7 @@ def _block(
 
 
 # --- escape_md ---------------------------------------------------------
+
 
 def test_escape_md_all_reserved() -> None:
     # 예약 문자 샘플 모두 이스케이프
@@ -53,6 +54,7 @@ def test_escape_md_preserves_plain_text() -> None:
 
 
 # --- build_messages 기본 동작 -----------------------------------------
+
 
 def test_empty_blocks_returns_info_message() -> None:
     out = build_messages(_window_evening(), [])
@@ -105,6 +107,7 @@ def test_split_when_too_long() -> None:
 
 
 # --- 스냅샷 -----------------------------------------------------------
+
 
 def test_formatter_snapshot(snapshot) -> None:  # type: ignore[no-untyped-def]
     block = _block(

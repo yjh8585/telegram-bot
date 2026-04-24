@@ -1,4 +1,5 @@
 """여러 채널에서 window 내 메시지를 수집하는 서비스."""
+
 from __future__ import annotations
 
 from loguru import logger
@@ -37,6 +38,8 @@ class CollectorService:
         """채널별 최대 message_id를 last_seen으로 기록(최종 발송 후 호출)."""
         by_channel: dict[str, int] = {}
         for m in messages:
-            by_channel[m.channel_username] = max(by_channel.get(m.channel_username, 0), m.message_id)
+            by_channel[m.channel_username] = max(
+                by_channel.get(m.channel_username, 0), m.message_id
+            )
         for channel, mid in by_channel.items():
             self._state.set_last_seen(channel, mid)

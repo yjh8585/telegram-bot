@@ -1,4 +1,5 @@
 """이미지 → Claude vision 한국어 설명. sha1 기반 캐시로 재호출 방지."""
+
 from __future__ import annotations
 
 import base64
@@ -55,26 +56,22 @@ class VisionService:
     def _describe_fresh(self, image_sha1: str, image_bytes: bytes) -> str | None:
         media_type = _detect_media_type(image_bytes)
         b64 = base64.b64encode(image_bytes).decode("ascii")
+        user_content: list[dict[str, Any]] = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": b64,
+                },
+            },
+            {"type": "text", "text": _VISION_PROMPT},
+        ]
         try:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=_MAX_TOKENS,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": media_type,
-                                    "data": b64,
-                                },
-                            },
-                            {"type": "text", "text": _VISION_PROMPT},
-                        ],
-                    }
-                ],
+                messages=[{"role": "user", "content": user_content}],  # type: ignore[typeddict-item]
             )
         except Exception as e:
             logger.warning(f"vision 호출 실패 sha1={image_sha1[:8]}.. err={e}")

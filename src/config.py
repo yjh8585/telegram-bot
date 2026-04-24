@@ -1,4 +1,5 @@
 """환경변수·상수 로더."""
+
 from __future__ import annotations
 
 from pathlib import Path

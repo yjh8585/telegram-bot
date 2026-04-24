@@ -1,9 +1,10 @@
 """FinanceDataReader 기반 시세 조회. 실패 시 graceful degrade(해당 종목 생략)."""
+
 from __future__ import annotations
 
 import time
 from datetime import date, timedelta
-from typing import Literal
+from typing import Literal, cast
 
 import FinanceDataReader as fdr
 import pandas as pd
@@ -94,5 +95,5 @@ def _change_pct(df: pd.DataFrame) -> float | None:
 def _last_date(df: pd.DataFrame, fallback: date) -> date:
     idx = df.index[-1]
     if hasattr(idx, "date"):
-        return idx.date()
+        return cast(date, idx.date())
     return fallback

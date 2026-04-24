@@ -1,4 +1,5 @@
 """RawMessage → EnrichedMessage: 뉴스 본문·이미지 설명·티커 추출을 조합."""
+
 from __future__ import annotations
 
 from src.dtos import ArticleBody, EnrichedMessage, RawMessage
