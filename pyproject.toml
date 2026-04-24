@@ -1,0 +1,32 @@
+[project]
+name = "telegram-news-bot"
+version = "0.1.0"
+description = "관심 텔레그램 채널 수집·중복 통합·요약 후 하루 4회 DM 전송 봇"
+requires-python = ">=3.12"
+readme = "README.md"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",   # pycodestyle, pyflakes
+  "I",             # isort
+  "B",             # flake8-bugbear
+  "UP",            # pyupgrade
+  "SIM",           # flake8-simplify
+]
+ignore = [
+  "E501",  # 줄길이는 포맷터가 담당
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --tb=short"
