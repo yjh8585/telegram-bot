@@ -70,7 +70,7 @@ class TelethonRepository:
         return results
 
     async def _to_dto(self, channel: str, msg: Message) -> RawMessage:
-        photo_sha1 = await self._download_photo_sha1(msg)
+        photo_sha1, photo_bytes = await self._download_photo(msg)
         urls = self._extract_urls(msg)
         return RawMessage(
             channel_username=channel,
@@ -79,16 +79,18 @@ class TelethonRepository:
             text=msg.message or "",
             photo_sha1=photo_sha1,
             photo_caption=(msg.message or None) if photo_sha1 else None,
+            photo_bytes=photo_bytes,
             urls=urls,
         )
 
-    async def _download_photo_sha1(self, msg: Message) -> str | None:
-        """사진이 있으면 메모리에 받아 sha1을 계산하고 반환."""
+    async def _download_photo(self, msg: Message) -> tuple[str | None, bytes | None]:
+        """사진을 메모리에 받아 (sha1, bytes)를 반환. 사진이 없으면 (None, None)."""
         if not msg.photo:
-            return None
+            return None, None
         buffer = io.BytesIO()
         await msg.download_media(file=buffer)
-        return hashlib.sha1(buffer.getvalue()).hexdigest()
+        data = buffer.getvalue()
+        return hashlib.sha1(data).hexdigest(), data
 
     @staticmethod
     def _extract_urls(msg: Message) -> list[str]:

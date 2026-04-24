@@ -19,6 +19,8 @@ class RawMessage(BaseModel):
     text: str = ""
     photo_sha1: str | None = None
     photo_caption: str | None = None
+    # vision 입력용 메모리 바이트. 로그·직렬화 제외.
+    photo_bytes: bytes | None = Field(default=None, exclude=True, repr=False)
     urls: list[str] = Field(default_factory=list)
 
     @property
