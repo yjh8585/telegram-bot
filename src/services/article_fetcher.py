@@ -12,7 +12,7 @@ from loguru import logger
 from src.dtos import ArticleBody
 from src.repositories.state_repo import StateRepository
 
-_BODY_MAX_CHARS = 4000  # 토큰 절감용 본문 컷오프
+_BODY_MAX_CHARS = 2000  # 어차피 _REP_TEXT_LIMIT(1000)으로 다시 잘리므로 충분
 
 
 def _url_hash(url: str) -> str:

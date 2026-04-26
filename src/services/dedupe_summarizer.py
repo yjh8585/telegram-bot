@@ -16,8 +16,8 @@ from src.dtos import ClusteredTopic, Importance, PreCluster, SourceRef
 from src.services.vision import NO_INFO_MARKER
 
 _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
-_MAX_TOKENS = 8000
-_REP_TEXT_LIMIT = 1500
+_MAX_TOKENS = 4000   # 토픽 15개 × 250토큰 출력 기준으로도 충분
+_REP_TEXT_LIMIT = 1000
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
 
