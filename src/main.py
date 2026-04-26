@@ -41,6 +41,11 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Telegram 채널 요약 봇")
     p.add_argument("--window", choices=_WINDOW_CHOICES, default="auto")
     p.add_argument("--dry-run", action="store_true", help="DM 발송/state 갱신 생략")
+    p.add_argument(
+        "--no-commit",
+        action="store_true",
+        help="DM은 발송하되 last_seen 갱신 생략(테스트런용)",
+    )
     return p.parse_args()
 
 
@@ -81,26 +86,36 @@ def _analyze(
     enrichment = EnrichmentService(article_fetcher, ticker_extractor, vision)
     pre_cluster = PreClusterService(settings.dedupe_threshold)
     summarizer = DedupeSummarizerService(client, settings.model)
-    stock = StockService()
 
     enriched = [enrichment.enrich(m) for m in raw_msgs]
     clusters = pre_cluster.cluster(enriched)
     topics = summarizer.summarize(clusters)
+    stock = StockService(ticker_dict)
     return _build_blocks(topics, stock)
 
 
-async def _deliver(settings: Settings, messages: list[str], dry_run: bool) -> None:
+async def _deliver(
+    settings: Settings,
+    messages: list[str],
+    images: list[bytes],
+    dry_run: bool,
+) -> None:
     if dry_run:
         for i, m in enumerate(messages, 1):
             print(f"\n===== 메시지 {i}/{len(messages)} =====\n{m}")
+        if images:
+            print(f"\n[이미지 {len(images)}장 — dry-run이므로 전송 생략]")
         return
     notifier = NotifierService(settings.bot_token, settings.bot_chat_id)
     await notifier.send_messages(messages)
+    await notifier.send_photos(images)
 
 
-async def _run(window: Window, dry_run: bool) -> None:
+async def _run(window: Window, dry_run: bool, no_commit: bool) -> None:
     settings = get_settings()
-    logger.info(f"window={window.label} {window.header_text} dry_run={dry_run}")
+    logger.info(
+        f"window={window.label} {window.header_text} dry_run={dry_run} no_commit={no_commit}"
+    )
 
     state = StateRepository(settings.state_db_path)
     client = Anthropic(api_key=settings.anthropic_api_key)
@@ -114,11 +129,20 @@ async def _run(window: Window, dry_run: bool) -> None:
         logger.info(f"총 {len(raw_msgs)}건 수집")
         blocks = _analyze(settings, state, client, raw_msgs) if raw_msgs else []
         messages = build_messages(window, blocks)
-        await _deliver(settings, messages, dry_run)
+        images = [img for block in blocks for img in block.topic.images]
+        await _deliver(settings, messages, images, dry_run)
 
-        if not dry_run and raw_msgs:
+        # last_seen 갱신: dry_run/no_commit이면 건너뜀, 분석 실패 시도 건너뜀
+        if dry_run:
+            return
+        if no_commit:
+            logger.info("--no-commit 옵션 — last_seen 갱신 생략")
+            return
+        if raw_msgs and blocks:
             collector.commit_last_seen(raw_msgs)
             logger.info("last_seen 갱신 완료")
+        elif raw_msgs and not blocks:
+            logger.warning("분석 결과 없음 — last_seen 갱신 생략 (다음 실행 시 재수집)")
     finally:
         state.close()
 
@@ -139,7 +163,7 @@ async def _main() -> None:
     args = _parse_args()
     window = _resolve_window(args.window)
     try:
-        await _run(window, args.dry_run)
+        await _run(window, args.dry_run, args.no_commit)
     except Exception as e:
         tb = traceback.format_exc()
         logger.error(f"오케스트레이션 실패: {e}")

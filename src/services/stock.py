@@ -11,6 +11,7 @@ import pandas as pd
 from loguru import logger
 
 from src.dtos import StockQuote, Ticker
+from src.services.ticker_dict import TickerDict
 
 _LOOKBACK_DAYS = 7
 _DEFAULT_MAX_RETRIES = 3
@@ -30,9 +31,11 @@ class StockService:
 
     def __init__(
         self,
+        ticker_dict: TickerDict | None = None,
         max_retries: int = _DEFAULT_MAX_RETRIES,
         wait_base: float = _DEFAULT_WAIT_BASE,
     ) -> None:
+        self._ticker_dict = ticker_dict
         self._max_retries = max_retries
         self._wait_base = wait_base
 
@@ -72,9 +75,18 @@ class StockService:
         price = float(last["Close"])
         change_pct = _change_pct(df)
         as_of = _last_date(df, today)
+
+        # KR 종목: TickerDict에서 종목명·거래소 보완 (주입된 경우에만)
+        name = t.name
+        exchange: str | None = None
+        if t.market == "KR" and self._ticker_dict is not None:
+            name = name or self._ticker_dict.name_of(t.code)
+            exchange = self._ticker_dict.exchange_of(t.code)
+
         return StockQuote(
             code=t.code,
-            name=t.name,
+            name=name,
+            exchange=exchange,
             price=price,
             change_pct=change_pct,
             currency=_currency_of(t.market),
