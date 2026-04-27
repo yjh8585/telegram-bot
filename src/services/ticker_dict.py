@@ -56,22 +56,25 @@ class TickerDict:
 
     def _refresh_from_fdr(self) -> None:
         logger.info("KRX 종목 사전 갱신 중 (FinanceDataReader)")
-        df = fdr.StockListing("KRX")
-        code_col = "Code" if "Code" in df.columns else "Symbol"
-        market_col = "Market" if "Market" in df.columns else None
-        for _, row in df.iterrows():
-            code = str(row[code_col]).zfill(6)
-            name = str(row["Name"]).strip()
-            if not name or not code:
-                continue
-            self._code_to_name[code] = name
-            self._name_to_code[name] = code
-            if market_col:
-                exchange = str(row[market_col]).strip()
-                if exchange:
-                    self._code_to_exchange[code] = exchange
-        self._save_cache()
-        logger.info(f"KRX 사전 {len(self._code_to_name)}건 로드")
+        try:
+            df = fdr.StockListing("KRX")
+            code_col = "Code" if "Code" in df.columns else "Symbol"
+            market_col = "Market" if "Market" in df.columns else None
+            for _, row in df.iterrows():
+                code = str(row[code_col]).zfill(6)
+                name = str(row["Name"]).strip()
+                if not name or not code:
+                    continue
+                self._code_to_name[code] = name
+                self._name_to_code[name] = code
+                if market_col:
+                    exchange = str(row[market_col]).strip()
+                    if exchange:
+                        self._code_to_exchange[code] = exchange
+            self._save_cache()
+            logger.info(f"KRX 사전 {len(self._code_to_name)}건 로드")
+        except Exception as e:
+            logger.warning(f"KRX 사전 갱신 실패: {e} — 종목명 조회 불가로 진행")
 
     def _save_cache(self) -> None:
         self._cache_path.parent.mkdir(parents=True, exist_ok=True)

@@ -35,12 +35,26 @@ def _fmt_change(q: StockQuote) -> str:
     return f"({sign}{q.change_pct:.1f}%)"
 
 
+def _fmt_close_time(q: StockQuote) -> str:
+    """거래소별 종가 시각 문자열 반환."""
+    if q.exchange in ("KOSPI", "KOSDAQ"):
+        return " 15:30 종가"
+    if q.currency == "USD":
+        return " 16:00(ET) 종가"
+    return " 종가"
+
+
 def _fmt_quote_line(q: StockQuote) -> str:
     name = q.name or q.code
+    # 이름이 있을 때만 티커를 괄호로 표시 — 이름이 없으면 코드 자체가 식별자
+    ticker_part = f"({q.code})" if q.name else ""
     change = _fmt_change(q)
-    base = f"• {name} ({q.code}): {_fmt_price(q)}"
+    as_of_str = q.as_of.strftime("%m/%d")
+    close_time = _fmt_close_time(q)
+    base = f"• {name}{ticker_part}: {_fmt_price(q)}"
     if change:
         base += f" {change}"
+    base += f" [{as_of_str}{close_time}]"
     return escape_md(base)
 
 

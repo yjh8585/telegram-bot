@@ -100,6 +100,8 @@ class ClusteredTopic(BaseModel):
     importance: Importance = "medium"
     sources: list[SourceRef] = Field(default_factory=list)
     tickers: list[str] = Field(default_factory=list)
+    # 의미 있는 금융 이미지 바이트 목록 (직렬화 제외)
+    images: list[bytes] = Field(default_factory=list, exclude=True, repr=False)
 
 
 class StockQuote(BaseModel):
@@ -107,6 +109,7 @@ class StockQuote(BaseModel):
 
     code: str
     name: str | None = None
+    exchange: str | None = None  # "KOSPI", "KOSDAQ", "NYSE" 등
     price: float
     change_pct: float | None = None
     currency: Literal["KRW", "USD"]

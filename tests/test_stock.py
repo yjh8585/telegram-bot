@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -75,3 +75,16 @@ def test_exception_returns_empty() -> None:
     assert quotes == []
     # max_retries=2 → 총 2회 호출
     assert m.call_count == 2
+
+
+def test_kr_ticker_name_from_dict() -> None:
+    """TickerDict 주입 시 종목명·거래소가 StockQuote에 채워져야 한다."""
+    mock_dict = MagicMock()
+    mock_dict.name_of.return_value = "삼성전자"
+    mock_dict.exchange_of.return_value = "KOSPI"
+    svc = StockService(ticker_dict=mock_dict, max_retries=1, wait_base=0)
+    with patch("src.services.stock.fdr.DataReader", return_value=_df([70000, 71400])):
+        quotes = svc.fetch_quotes([Ticker(code="005930", market="KR")])
+    assert len(quotes) == 1
+    assert quotes[0].name == "삼성전자"
+    assert quotes[0].exchange == "KOSPI"
