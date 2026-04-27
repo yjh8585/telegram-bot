@@ -43,25 +43,36 @@ class TelethonRepository:
         await self._client.disconnect()
 
     async def fetch_window(
-        self, channel: str, since_utc: datetime, until_utc: datetime
+        self,
+        channel: str,
+        since_utc: datetime,
+        until_utc: datetime,
+        min_id: int = 0,
     ) -> list[RawMessage]:
-        """since ≤ posted_at < until 메시지를 반환. FloodWait는 짧으면 대기, 길면 스킵."""
+        """since ≤ posted_at < until 그리고 message_id > min_id 메시지를 반환."""
         try:
-            return await self._iter_window(channel, since_utc, until_utc)
+            return await self._iter_window(channel, since_utc, until_utc, min_id)
         except FloodWaitError as e:
             if e.seconds > _MAX_FLOOD_WAIT_SECONDS:
                 logger.warning(f"[{channel}] FloodWait {e.seconds}s → 스킵")
                 return []
             logger.info(f"[{channel}] FloodWait {e.seconds}s 대기 후 재시도")
             await asyncio.sleep(e.seconds + 1)
-            return await self._iter_window(channel, since_utc, until_utc)
+            return await self._iter_window(channel, since_utc, until_utc, min_id)
 
     async def _iter_window(
-        self, channel: str, since_utc: datetime, until_utc: datetime
+        self,
+        channel: str,
+        since_utc: datetime,
+        until_utc: datetime,
+        min_id: int = 0,
     ) -> list[RawMessage]:
         results: list[RawMessage] = []
         # offset_date=until → 이 시각 이전 메시지부터 최신→과거 순회
-        async for msg in self._client.iter_messages(channel, offset_date=until_utc):
+        # min_id → Telethon이 ID 필터링까지 처리해 불필요한 다운로드를 줄임
+        async for msg in self._client.iter_messages(
+            channel, offset_date=until_utc, min_id=min_id
+        ):
             msg_date: datetime = msg.date
             if msg_date < since_utc:
                 break
