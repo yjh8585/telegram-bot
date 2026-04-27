@@ -6,17 +6,32 @@
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
 
 from telegram import Bot
 
-from src.config import get_settings
-from src.logger import setup_logger
+# .env 파일에서 BOT_TOKEN 직접 읽기 (다른 환경변수가 없어도 동작)
+def _load_bot_token() -> str:
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("BOT_TOKEN="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    token = os.environ.get("BOT_TOKEN", "")
+    if not token:
+        token = input("BOT_TOKEN을 입력하세요: ").strip()
+    return token
 
 
 async def main() -> None:
-    setup_logger()
-    settings = get_settings()
-    bot = Bot(token=settings.bot_token)
+    token = _load_bot_token()
+    if not token:
+        print("BOT_TOKEN이 없습니다. .env 파일에 BOT_TOKEN=<값> 을 추가하거나 직접 입력하세요.")
+        return
+
+    bot = Bot(token=token)
     async with bot:
         updates = await bot.get_updates(timeout=0)
 

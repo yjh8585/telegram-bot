@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     tg_session_string: str = ""
 
     # Telegram Bot API
-    bot_token: str
-    bot_chat_id: int
+    bot_token: str = ""
+    bot_chat_id: int = 0
 
     # Anthropic
     anthropic_api_key: str

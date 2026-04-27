@@ -24,6 +24,9 @@ numpy>=1.26.0
 httpx>=0.27.0
 tenacity>=9.0.0
 
+# JSON 파싱 보정 (LLM 출력 오류 복구)
+json-repair>=0.30.0
+
 # 설정 / 검증
 pydantic>=2.9.0
 pydantic-settings>=2.6.0
