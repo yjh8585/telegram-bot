@@ -126,9 +126,91 @@ GitHub 저장소 → **Settings** → **Secrets and variables** → **Actions** 
 - 로그 성공 / Telegram DM 도착 확인
 - [ ] 수동 실행 성공
 
-### C-5. Cron 자동 실행 확인
-- 다음 예정 시각(07:30 / 11:00 / 15:00 / 18:00 KST) 중 하나에 자동 실행되는지 확인
-- [ ] 자동 실행 성공
+### C-5. cron-job.org 외부 스케줄러 설정 (GitHub cron 대체)
+
+GitHub Actions 내장 cron은 수십 분 지연이 발생한다. cron-job.org 무료 서비스가
+정각에 GitHub API를 호출해 워크플로우를 트리거하도록 설정한다.
+
+#### C-5-1. GitHub PAT (Personal Access Token) 발급
+- [ ] GitHub → 우측 상단 프로필 → **Settings**
+- [ ] 좌측 하단 **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+- [ ] **Generate new token (classic)** 클릭
+  - Note: `cron-job-dispatch`
+  - Expiration: 원하는 기간 (1년 권장)
+  - Scopes: **`workflow`** 체크박스 하나만 선택
+- [ ] 생성된 토큰(`ghp_...`) 복사·보관 (다시 볼 수 없음)
+
+#### C-5-2. cron-job.org 계정 생성
+- [ ] https://cron-job.org 접속 → **Sign up** (무료)
+
+#### C-5-3. 4개 Job 등록
+
+아래 설정을 Job마다 반복한다. `{REPO_NAME}`은 실제 GitHub 저장소명으로 대체.
+
+**공통 설정**
+| 항목 | 값 |
+|---|---|
+| URL | `https://api.github.com/repos/yjh8585/{REPO_NAME}/actions/workflows/collect.yml/dispatches` |
+| Request method | `POST` |
+| Header 1 | `Authorization` : `Bearer {PAT 토큰}` |
+| Header 2 | `Accept` : `application/vnd.github+json` |
+| Header 3 | `Content-Type` : `application/json` |
+
+> ⚠️ GitHub Actions 러너 큐잉 + 워크플로우 setup(pip·HuggingFace 캐시 등)에 평균 5~15분이
+> 소요된다. 원하는 수신 시각보다 **15분 앞서** 트리거하도록 아래와 같이 설정한다.
+
+**Job 1 — morning (KST 07:30 수신 목표)**
+- Schedule: **매일 22:15 UTC** (= KST 07:15, 15분 선행)
+- Request body:
+  ```json
+  {"ref": "master", "inputs": {"window": "morning", "dry_run": "false"}}
+  ```
+
+**Job 2 — late_morning (KST 11:00 수신 목표)**
+- Schedule: **매일 01:45 UTC** (= KST 10:45, 15분 선행)
+- Request body:
+  ```json
+  {"ref": "master", "inputs": {"window": "late_morning", "dry_run": "false"}}
+  ```
+
+**Job 3 — afternoon (KST 15:00 수신 목표)**
+- Schedule: **매일 05:45 UTC** (= KST 14:45, 15분 선행)
+- Request body:
+  ```json
+  {"ref": "master", "inputs": {"window": "afternoon", "dry_run": "false"}}
+  ```
+
+**Job 4 — evening (KST 18:00 수신 목표)**
+- Schedule: **매일 08:45 UTC** (= KST 17:45, 15분 선행)
+- Request body:
+  ```json
+  {"ref": "master", "inputs": {"window": "evening", "dry_run": "false"}}
+  ```
+
+- [ ] 4개 Job 모두 등록 완료
+
+#### C-5-4. 동작 확인
+- [ ] cron-job.org에서 Job 하나를 **수동 실행**(Save and run now)
+- [ ] GitHub → Actions 탭에서 워크플로우가 `workflow_dispatch` 이벤트로 시작되는지 확인
+- [ ] Telegram DM 도착 확인
+
+#### C-5-5. 테스트런 (수동 실행 시 last_seen 보존)
+
+cron-job.org **Run now**로 수동 테스트할 때는 Body에 `"no_commit": "true"`를
+추가하면 **DM은 받되 last_seen은 갱신되지 않는다**. 이렇게 하면 정식 cron 시각에
+실행될 때 같은 메시지가 다시 정상 수집된다.
+
+**테스트런용 Body 예시 (window는 원하는 슬롯으로 변경):**
+```json
+{"ref": "master", "inputs": {"window": "evening", "dry_run": "false", "no_commit": "true"}}
+```
+
+**모드 비교**
+| 옵션 | DM 발송 | last_seen 갱신 | 사용 시점 |
+|---|---|---|---|
+| 둘 다 false (기본) | ✅ | ✅ | 정식 cron 실행 |
+| `no_commit: "true"` | ✅ | ❌ | 수동 테스트 (결과 확인용) |
+| `dry_run: "true"`  | ❌ | ❌ | GitHub Actions 로그만으로 검증 |
 
 ---
 

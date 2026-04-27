@@ -1,17 +1,8 @@
 name: Telegram 채널 요약 수집·발송
 
 on:
-  # KST 기준 4회 실행 (UTC 변환)
-  #   KST 07:30 = UTC 22:30 (전일)
-  #   KST 11:00 = UTC 02:00
-  #   KST 15:00 = UTC 06:00
-  #   KST 18:00 = UTC 09:00
-  schedule:
-    - cron: "30 22 * * *"  # KST 07:30 (morning)
-    - cron: "0 2 * * *"    # KST 11:00 (late_morning)
-    - cron: "0 6 * * *"    # KST 15:00 (afternoon)
-    - cron: "0 9 * * *"    # KST 18:00 (evening)
-
+  # schedule cron 제거 — cron-job.org 외부 서비스가 정각에 workflow_dispatch를 호출한다.
+  # (GitHub Actions 내장 cron은 수십 분 지연이 발생하므로 대체)
   workflow_dispatch:
     inputs:
       window:
@@ -23,10 +14,15 @@ on:
         required: false
         type: boolean
         default: false
+      no_commit:
+        description: "테스트런 모드 (DM 발송, state 미갱신)"
+        required: false
+        type: boolean
+        default: false
 
 env:
   PYTHON_VERSION: "3.12"
-  STATE_CACHE_KEY_PREFIX: "state"
+  STATE_CACHE_KEY_PREFIX: "state-v2"
   HF_CACHE_KEY_PREFIX: "huggingface"
 
 jobs:
@@ -95,6 +91,23 @@ jobs:
             fi
           fi
 
+      - name: Secrets 설정 여부 진단 (값은 출력 안 함)
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          BOT_CHAT_ID: ${{ secrets.BOT_CHAT_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_SESSION_STRING: ${{ secrets.TG_SESSION_STRING }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          check() { [ -n "$1" ] && echo "✅ $2 SET" || echo "❌ $2 EMPTY"; }
+          check "$TG_API_ID"        "TG_API_ID"
+          check "$BOT_CHAT_ID"      "BOT_CHAT_ID"
+          check "$TG_API_HASH"      "TG_API_HASH"
+          check "$TG_SESSION_STRING" "TG_SESSION_STRING"
+          check "$BOT_TOKEN"        "BOT_TOKEN"
+          check "$ANTHROPIC_API_KEY" "ANTHROPIC_API_KEY"
+
       - name: 봇 실행
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
@@ -106,9 +119,13 @@ jobs:
         run: |
           WINDOW="${{ steps.resolve-window.outputs.window }}"
           DRY_RUN="${{ github.event.inputs.dry_run }}"
+          NO_COMMIT="${{ github.event.inputs.no_commit }}"
           CMD="python -m src.main --window ${WINDOW:-auto}"
           if [ "$DRY_RUN" = "true" ]; then
             CMD="$CMD --dry-run"
+          fi
+          if [ "$NO_COMMIT" = "true" ]; then
+            CMD="$CMD --no-commit"
           fi
           echo "실행 명령: $CMD"
           $CMD
