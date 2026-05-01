@@ -100,8 +100,6 @@ class ClusteredTopic(BaseModel):
     importance: Importance = "medium"
     sources: list[SourceRef] = Field(default_factory=list)
     tickers: list[str] = Field(default_factory=list)
-    # 의미 있는 금융 이미지 바이트 목록 (직렬화 제외)
-    images: list[bytes] = Field(default_factory=list, exclude=True, repr=False)
 
 
 class StockQuote(BaseModel):

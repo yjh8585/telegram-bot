@@ -13,10 +13,9 @@ from loguru import logger
 
 from src.config import PROJECT_ROOT
 from src.dtos import ClusteredTopic, Importance, PreCluster, SourceRef
-from src.services.vision import NO_INFO_MARKER
 
 _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
-_MAX_TOKENS = 4000   # 토픽 15개 × 250토큰 출력 기준으로도 충분
+_MAX_TOKENS = 8192   # 클러스터 30개 이상 시 잘림 방지 (Haiku 4.5 최대 출력)
 _REP_TEXT_LIMIT = 1000
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
@@ -77,19 +76,6 @@ def _parse_topics(raw: str, clusters: list[PreCluster]) -> list[ClusteredTopic]:
     return [topic for topic in (_build_topic(item, clusters) for item in arr) if topic is not None]
 
 
-def _collect_images(cluster: PreCluster) -> list[bytes]:
-    """클러스터 내 의미 있는 이미지 바이트 목록을 반환."""
-    images: list[bytes] = []
-    for member in cluster.members:
-        if (
-            member.raw.photo_bytes is not None
-            and member.image_description is not None
-            and NO_INFO_MARKER not in member.image_description
-        ):
-            images.append(member.raw.photo_bytes)
-    return images
-
-
 def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None:
     if not isinstance(item, dict):
         return None
@@ -102,14 +88,12 @@ def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None
     )
     sources: list[SourceRef] = clusters[cid].all_sources
     tickers = [str(t) for t in (item.get("tickers") or []) if isinstance(t, str)]
-    images = _collect_images(clusters[cid])
     return ClusteredTopic(
         title=str(item.get("title") or "").strip(),
         summary=str(item.get("summary") or "").strip(),
         importance=importance,
         sources=sources,
         tickers=tickers,
-        images=images,
     )
 
 

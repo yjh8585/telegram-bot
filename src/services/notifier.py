@@ -2,62 +2,55 @@
 
 from __future__ import annotations
 
-import io
+from types import TracebackType
+from typing import Self
 
 from loguru import logger
-from telegram import Bot, InputMediaPhoto
+from telegram import Bot
 from telegram.constants import ParseMode
-
-_ALBUM_LIMIT = 10  # Telegram 앨범 최대 장수
 
 
 class NotifierService:
-    """Bot 토큰으로 개인 chat_id에 MarkdownV2 DM을 전송."""
+    """Bot 토큰으로 개인 chat_id에 MarkdownV2 DM을 전송.
+
+    async context manager로 사용해야 함 — Bot 세션을 한 번만 열고 닫는다.
+    """
 
     def __init__(self, bot_token: str, chat_id: int) -> None:
         self._bot = Bot(token=bot_token)
         self._chat_id = chat_id
 
+    async def __aenter__(self) -> Self:
+        await self._bot.initialize()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        await self._bot.shutdown()
+
     async def send_messages(self, messages: list[str]) -> None:
         if not messages:
             return
-        async with self._bot:
-            for msg in messages:
-                await self._bot.send_message(
-                    chat_id=self._chat_id,
-                    text=msg,
-                    parse_mode=ParseMode.MARKDOWN_V2,
-                    disable_web_page_preview=True,
-                )
-
-    async def send_photos(self, images: list[bytes]) -> None:
-        """의미 있는 이미지를 앨범(최대 10장) 단위로 전송."""
-        if not images:
-            return
-        async with self._bot:
-            for batch_start in range(0, len(images), _ALBUM_LIMIT):
-                batch = images[batch_start : batch_start + _ALBUM_LIMIT]
-                if len(batch) == 1:
-                    await self._bot.send_photo(
-                        chat_id=self._chat_id,
-                        photo=io.BytesIO(batch[0]),
-                    )
-                else:
-                    media = [InputMediaPhoto(media=io.BytesIO(img)) for img in batch]
-                    await self._bot.send_media_group(
-                        chat_id=self._chat_id,
-                        media=media,
-                    )
+        for msg in messages:
+            await self._bot.send_message(
+                chat_id=self._chat_id,
+                text=msg,
+                parse_mode=ParseMode.MARKDOWN_V2,
+                disable_web_page_preview=True,
+            )
 
     async def send_error(self, error_text: str) -> None:
         """오케스트레이션에서 잡힌 최종 예외를 봇 자신이 DM으로 받음."""
         preview = error_text[:3500]
         try:
-            async with self._bot:
-                await self._bot.send_message(
-                    chat_id=self._chat_id,
-                    text=f"⚠️ 봇 오류\n{preview}",
-                    disable_web_page_preview=True,
-                )
+            await self._bot.send_message(
+                chat_id=self._chat_id,
+                text=f"⚠️ 봇 오류\n{preview}",
+                disable_web_page_preview=True,
+            )
         except Exception as e:  # 실패하면 stdout 로그로 남기고 끝
             logger.error(f"에러 DM 발송 실패: {e}")

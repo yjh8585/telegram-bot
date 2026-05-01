@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 import traceback
 from typing import cast
 
@@ -97,18 +98,17 @@ def _analyze(
 async def _deliver(
     settings: Settings,
     messages: list[str],
-    images: list[bytes],
     dry_run: bool,
 ) -> None:
     if dry_run:
+        # Windows cp949 터미널에서 이모지 인코딩 오류 방지
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         for i, m in enumerate(messages, 1):
             print(f"\n===== 메시지 {i}/{len(messages)} =====\n{m}")
-        if images:
-            print(f"\n[이미지 {len(images)}장 — dry-run이므로 전송 생략]")
         return
-    notifier = NotifierService(settings.bot_token, settings.bot_chat_id)
-    await notifier.send_messages(messages)
-    await notifier.send_photos(images)
+    async with NotifierService(settings.bot_token, settings.bot_chat_id) as notifier:
+        await notifier.send_messages(messages)
 
 
 async def _run(window: Window, dry_run: bool, no_commit: bool) -> None:
@@ -127,22 +127,29 @@ async def _run(window: Window, dry_run: bool, no_commit: bool) -> None:
             raw_msgs = await collector.collect(window)
 
         logger.info(f"총 {len(raw_msgs)}건 수집")
-        blocks = _analyze(settings, state, client, raw_msgs) if raw_msgs else []
-        messages = build_messages(window, blocks)
-        images = [img for block in blocks for img in block.topic.images]
-        await _deliver(settings, messages, images, dry_run)
+        if not raw_msgs:
+            # 수집 0건 — "새 정보 없음" 정상 발송
+            messages = build_messages(window, [])
+        else:
+            blocks = _analyze(settings, state, client, raw_msgs)
+            if not blocks:
+                # 수집은 됐으나 Claude 응답 이상 또는 JSON 파싱 실패
+                raise RuntimeError(
+                    f"분석 파이프라인 결과 없음 (수집 {len(raw_msgs)}건 있음) — Claude 응답 또는 JSON 파싱 확인 필요"
+                )
+            messages = build_messages(window, blocks)
 
-        # last_seen 갱신: dry_run/no_commit이면 건너뜀, 분석 실패 시도 건너뜀
+        await _deliver(settings, messages, dry_run)
+
+        # last_seen 갱신: dry_run/no_commit이면 건너뜀
         if dry_run:
             return
         if no_commit:
             logger.info("--no-commit 옵션 — last_seen 갱신 생략")
             return
-        if raw_msgs and blocks:
+        if raw_msgs:
             collector.commit_last_seen(raw_msgs)
             logger.info("last_seen 갱신 완료")
-        elif raw_msgs and not blocks:
-            logger.warning("분석 결과 없음 — last_seen 갱신 생략 (다음 실행 시 재수집)")
     finally:
         state.close()
 
@@ -152,8 +159,8 @@ async def _report_error(exc: BaseException, tb: str, dry_run: bool) -> None:
         return
     try:
         settings = get_settings()
-        notifier = NotifierService(settings.bot_token, settings.bot_chat_id)
-        await notifier.send_error(f"{exc}\n\n{tb[-2000:]}")
+        async with NotifierService(settings.bot_token, settings.bot_chat_id) as notifier:
+            await notifier.send_error(f"{exc}\n\n{tb[-2000:]}")
     except Exception as e:
         logger.error(f"에러 리포트 DM 실패: {e}")
 
