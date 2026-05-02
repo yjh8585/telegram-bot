@@ -45,9 +45,10 @@ def _fmt_close_time(q: StockQuote) -> str:
 
 
 def _fmt_quote_line(q: StockQuote) -> str:
-    name = q.name or q.code
-    # 이름이 있을 때만 티커를 괄호로 표시 — 이름이 없으면 코드 자체가 식별자
-    ticker_part = f"({q.code})" if q.name else ""
+    # name이 코드와 다른 실제 이름인 경우에만 종목명+괄호 형태로 표시
+    has_real_name = bool(q.name) and q.name != q.code
+    name = q.name if has_real_name else q.code
+    ticker_part = f"({q.code})" if has_real_name else ""
     change = _fmt_change(q)
     as_of_str = q.as_of.strftime("%m/%d")
     close_time = _fmt_close_time(q)

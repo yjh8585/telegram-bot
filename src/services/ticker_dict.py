@@ -38,7 +38,24 @@ class TickerDict:
     def _load_or_refresh(self) -> None:
         if self._try_load_fresh_cache():
             return
+        # FDR 갱신 실패 대비 이전 캐시를 먼저 로드 (폴백)
+        self._try_load_stale_cache()
         self._refresh_from_fdr()
+
+    def _try_load_stale_cache(self) -> bool:
+        """날짜 무관 이전 캐시 로드 (FDR 갱신 실패 시 폴백용)."""
+        if not self._cache_path.exists():
+            return False
+        try:
+            data = json.loads(self._cache_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        self._code_to_name = dict(data.get("code_to_name", {}))
+        self._name_to_code = dict(data.get("name_to_code", {}))
+        self._code_to_exchange = dict(data.get("code_to_exchange", {}))
+        if self._code_to_name:
+            logger.info(f"이전 캐시 폴백 로드: {len(self._code_to_name)}건 (as_of={data.get('as_of')})")
+        return bool(self._code_to_name)
 
     def _try_load_fresh_cache(self) -> bool:
         if not self._cache_path.exists():
@@ -63,7 +80,7 @@ class TickerDict:
             for _, row in df.iterrows():
                 code = str(row[code_col]).zfill(6)
                 name = str(row["Name"]).strip()
-                if not name or not code:
+                if not name or not code or name == code:
                     continue
                 self._code_to_name[code] = name
                 self._name_to_code[name] = code
