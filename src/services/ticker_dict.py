@@ -75,6 +75,7 @@ class TickerDict:
         logger.info("KRX 종목 사전 갱신 중 (FinanceDataReader)")
         try:
             df = fdr.StockListing("KRX")
+            logger.info(f"StockListing 컬럼: {df.columns.tolist()}, 행 수: {len(df)}")
             code_col = "Code" if "Code" in df.columns else "Symbol"
             market_col = "Market" if "Market" in df.columns else None
             for _, row in df.iterrows():
@@ -89,7 +90,7 @@ class TickerDict:
                     if exchange:
                         self._code_to_exchange[code] = exchange
             self._save_cache()
-            logger.info(f"KRX 사전 {len(self._code_to_name)}건 로드")
+            logger.info(f"KRX 사전 {len(self._code_to_name)}건 로드 완료")
         except Exception as e:
             logger.warning(f"KRX 사전 갱신 실패: {e} — 종목명 조회 불가로 진행")
 

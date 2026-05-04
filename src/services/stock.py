@@ -82,6 +82,8 @@ class StockService:
         if t.market == "KR" and self._ticker_dict is not None:
             name = name or self._ticker_dict.name_of(t.code)
             exchange = self._ticker_dict.exchange_of(t.code)
+            if not name:
+                logger.warning(f"종목명 조회 실패: {t.code} — TickerDict에 해당 코드 없음")
 
         return StockQuote(
             code=t.code,

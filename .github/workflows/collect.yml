@@ -55,11 +55,13 @@ jobs:
           restore-keys: |
             ${{ env.HF_CACHE_KEY_PREFIX }}-
 
-      - name: state.db 캐시 복원 (run 간 last_seen 유지)
+      - name: state 캐시 복원 (last_seen DB + KRX 종목 사전)
         uses: actions/cache/restore@v4
         id: state-restore
         with:
-          path: state/state.db
+          path: |
+            state/state.db
+            state/krx_ticker_dict.json
           key: ${{ env.STATE_CACHE_KEY_PREFIX }}-${{ github.run_id }}
           restore-keys: |
             ${{ env.STATE_CACHE_KEY_PREFIX }}-
@@ -130,9 +132,11 @@ jobs:
           echo "실행 명령: $CMD"
           $CMD
 
-      - name: state.db 캐시 저장 (성공·실패 무관하게 저장)
+      - name: state 캐시 저장 (성공·실패 무관하게 저장)
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: state/state.db
+          path: |
+            state/state.db
+            state/krx_ticker_dict.json
           key: ${{ env.STATE_CACHE_KEY_PREFIX }}-${{ github.run_id }}
