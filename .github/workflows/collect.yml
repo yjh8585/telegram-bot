@@ -79,7 +79,7 @@ jobs:
             # UTC 현재 시간 기준 window 결정
             HOUR=$(date -u +%H)
             MINUTE=$(date -u +%M)
-            TIME=$((HOUR * 60 + MINUTE))
+            TIME=$(( 10#$HOUR * 60 + 10#$MINUTE ))
             # UTC 22:30 → morning (KST 07:30)
             # UTC 02:00 → late_morning (KST 11:00)
             # UTC 06:00 → afternoon (KST 15:00)
