@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -75,6 +76,24 @@ def test_exception_returns_empty() -> None:
     assert quotes == []
     # max_retries=2 → 총 2회 호출
     assert m.call_count == 2
+
+
+def test_nan_close_returns_none() -> None:
+    """FDR이 NaN Close를 반환할 때 시세 라인이 추가되지 않아야 한다."""
+    svc = StockService(max_retries=1, wait_base=0)
+    with patch("src.services.stock.fdr.DataReader", return_value=_df([100.0, math.nan])):
+        quotes = svc.fetch_quotes([Ticker(code="005930", market="KR")])
+    assert quotes == []
+
+
+def test_nan_prev_close_change_pct_none() -> None:
+    """직전 종가가 NaN이어도 ValueError 없이 change_pct만 None으로 처리."""
+    svc = StockService(max_retries=1, wait_base=0)
+    with patch("src.services.stock.fdr.DataReader", return_value=_df([math.nan, 100.0])):
+        quotes = svc.fetch_quotes([Ticker(code="005930", market="KR")])
+    assert len(quotes) == 1
+    assert quotes[0].price == 100.0
+    assert quotes[0].change_pct is None
 
 
 def test_kr_ticker_name_from_dict() -> None:

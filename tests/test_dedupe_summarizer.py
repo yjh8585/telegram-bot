@@ -81,3 +81,37 @@ def test_ignores_invalid_cluster_id() -> None:
     m1 = _enriched("ch", 1, "x")
     topics = svc.summarize([PreCluster(representative=m1, members=[m1])])
     assert topics == []
+
+
+def test_empty_title_or_summary_filtered() -> None:
+    """무의미 토픽(빈 title/summary)은 출력에서 제외되어야 한다."""
+    client = MagicMock()
+    client.messages.create.return_value = _mock_response(
+        '['
+        '{"cluster_id": 0, "title": "", "summary": "S", "importance": "low", "tickers": []},'
+        '{"cluster_id": 0, "title": "T", "summary": "", "importance": "low", "tickers": []},'
+        '{"cluster_id": 0, "title": "정상", "summary": "내용", "importance": "low", "tickers": []}'
+        ']'
+    )
+    svc = DedupeSummarizerService(client, "model")
+    m1 = _enriched("ch", 1, "x")
+    topics = svc.summarize([PreCluster(representative=m1, members=[m1])])
+    assert len(topics) == 1
+    assert topics[0].title == "정상"
+
+
+def test_same_channel_sources_deduped() -> None:
+    """같은 채널의 여러 멤버가 있어도 출처는 채널당 1개로 축약."""
+    client = MagicMock()
+    client.messages.create.return_value = _mock_response(
+        '[{"cluster_id": 0, "title": "T", "summary": "S", "importance": "medium", "tickers": []}]'
+    )
+    svc = DedupeSummarizerService(client, "model")
+    members = [_enriched("darthacking", i, f"text {i}") for i in (101, 102, 103, 104, 105)]
+    cluster = PreCluster(representative=members[0], members=members)
+    topics = svc.summarize([cluster])
+    assert len(topics) == 1
+    assert len(topics[0].sources) == 1
+    assert topics[0].sources[0].channel_username == "darthacking"
+    # 첫 등장 멤버의 message_id가 채택되어야 함
+    assert topics[0].sources[0].message_id == 101

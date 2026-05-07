@@ -82,6 +82,11 @@ def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None
     cid = item.get("cluster_id")
     if not isinstance(cid, int) or cid < 0 or cid >= len(clusters):
         return None
+    title = str(item.get("title") or "").strip()
+    summary = str(item.get("summary") or "").strip()
+    # title/summary 둘 중 하나라도 비면 무의미 토픽으로 간주해 제외.
+    if not title or not summary:
+        return None
     raw_importance = item.get("importance") or "medium"
     importance: Importance = (
         cast(Importance, raw_importance) if raw_importance in _VALID_IMPORTANCE else "medium"
@@ -89,8 +94,8 @@ def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None
     sources: list[SourceRef] = clusters[cid].all_sources
     tickers = [str(t) for t in (item.get("tickers") or []) if isinstance(t, str)]
     return ClusteredTopic(
-        title=str(item.get("title") or "").strip(),
-        summary=str(item.get("summary") or "").strip(),
+        title=title,
+        summary=summary,
         importance=importance,
         sources=sources,
         tickers=tickers,

@@ -86,10 +86,16 @@ class PreCluster(BaseModel):
 
     @property
     def all_sources(self) -> list[SourceRef]:
-        return [
-            SourceRef(channel_username=m.raw.channel_username, message_id=m.raw.message_id)
-            for m in self.members
-        ]
+        """채널별 첫 등장 멤버 1개만 남겨 시각적 노이즈 제거."""
+        seen: set[str] = set()
+        out: list[SourceRef] = []
+        for m in self.members:
+            ch = m.raw.channel_username
+            if ch in seen:
+                continue
+            seen.add(ch)
+            out.append(SourceRef(channel_username=ch, message_id=m.raw.message_id))
+        return out
 
 
 class ClusteredTopic(BaseModel):

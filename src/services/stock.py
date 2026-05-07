@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 from datetime import date, timedelta
 from typing import Literal, cast
@@ -73,6 +74,10 @@ class StockService:
             return None
         last = df.iloc[-1]
         price = float(last["Close"])
+        # FDR이 휴장·결측 데이터로 NaN/inf를 반환하는 경우가 있어 차단(graceful degrade).
+        if math.isnan(price) or math.isinf(price):
+            logger.warning(f"시세 NaN/Inf 차단 {t.market}:{t.code}")
+            return None
         change_pct = _change_pct(df)
         as_of = _last_date(df, today)
 
@@ -100,9 +105,11 @@ def _change_pct(df: pd.DataFrame) -> float | None:
     if len(df) < 2:
         return None
     prev = float(df.iloc[-2]["Close"])
+    curr = float(df.iloc[-1]["Close"])
+    if math.isnan(prev) or math.isnan(curr) or math.isinf(prev) or math.isinf(curr):
+        return None
     if prev == 0:
         return None
-    curr = float(df.iloc[-1]["Close"])
     return (curr - prev) / prev * 100
 
 

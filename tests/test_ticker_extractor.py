@@ -67,3 +67,32 @@ def test_dedupe_same_code_same_market() -> None:
     out = ext.extract("005930 삼성전자 또 005930")
     kr_codes = [t for t in out if t.market == "KR"]
     assert len(kr_codes) == 1
+
+
+def test_substring_within_korean_word_not_matched() -> None:
+    """SK하이닉스 본문에서 '이닉스'가 별개 종목으로 매칭되지 않아야 한다."""
+    d = _mock_dict({"이닉스": "094840", "SK하이닉스": "000660"})
+    ext = TickerExtractor(d)
+    out = ext.extract("SK하이닉스의 메모리 사업이 호조를 보였다")
+    codes = {t.code for t in out}
+    # SK하이닉스(000660)는 매칭, 이닉스(094840)는 매칭되지 않아야 함
+    assert "000660" in codes
+    assert "094840" not in codes
+
+
+def test_homonym_in_compound_word_not_matched() -> None:
+    """'선진국' 안의 '선진'이 종목으로 매칭되지 않아야 한다."""
+    d = _mock_dict({"선진": "136490", "신흥": "004080", "흥국": "010240"})
+    ext = TickerExtractor(d)
+    out = ext.extract("MSCI 선진국 지수 편입과 신흥국 분류, 흥국화재 등")
+    codes = {t.code for t in out}
+    assert codes == set(), f"기대: 빈 set, 실제: {codes}"
+
+
+def test_standalone_name_matches_with_boundary() -> None:
+    """공백/구두점 등 비-단어 경계로 둘러싸인 종목명은 매칭되어야 한다."""
+    d = _mock_dict({"대상": "001680"})
+    ext = TickerExtractor(d)
+    out = ext.extract("오늘 대상 신고가 갱신")
+    codes = [t.code for t in out]
+    assert "001680" in codes

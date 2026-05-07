@@ -14,6 +14,13 @@ from src.services.ticker_dict import TickerDict
 
 _KR_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
 _US_TICKER_RE = re.compile(r"\$([A-Z]{1,5})\b")
+# 한글·영문·숫자가 인접하면 단어 경계로 보지 않음. (Python `\b`는 한글 미지원)
+_BOUNDARY_CHAR_RE = re.compile(r"[가-힣A-Za-z0-9]")
+# 우측 경계가 한글일 때 인정하는 한국어 조사(1글자·2글자). 조사 뒤가 비단어여야 경계로 인정.
+_KO_PARTICLES_1 = frozenset(
+    {"의", "이", "가", "을", "를", "은", "는", "에", "도", "만", "과", "와", "로", "라", "야", "여"}
+)
+_KO_PARTICLES_2 = frozenset({"에서", "에는", "에도", "으로", "라는", "라고", "이라", "에게"})
 
 # 텍스트에서 자주 언급되는 주요 코인·해당 FDR 심볼
 _CRYPTO_KEYWORDS: dict[str, str] = {
@@ -80,10 +87,13 @@ class TickerExtractor:
                 add(code, "CRYPTO", kw)
 
         for name in self._dict.names():
-            if len(name) >= _MIN_NAME_LEN and name in text:
-                code = self._dict.code_of(name)
-                if code:
-                    add(code, "KR", name)
+            if len(name) < _MIN_NAME_LEN:
+                continue
+            if not _has_word_boundary_match(text, name):
+                continue
+            code = self._dict.code_of(name)
+            if code:
+                add(code, "KR", name)
 
         if tickers:
             return tickers
@@ -104,6 +114,47 @@ class TickerExtractor:
 
         raw = _extract_text_block(response)
         return _parse_ticker_json(raw)
+
+
+def _right_is_word_boundary(text: str, idx: int) -> bool:
+    """우측 경계 검사: 비단어이거나 한국어 조사(+비단어) 패턴이면 경계로 인정.
+
+    예) "SK하이닉스의 메모리" → '의' 뒤가 공백이라 경계로 인정.
+        "선진국 지수" 안의 '선진' → '국'은 조사 아님 → 경계 아님(합성어).
+    """
+    if idx >= len(text):
+        return True
+    ch = text[idx]
+    if not _BOUNDARY_CHAR_RE.match(ch):
+        return True
+    # 2글자 조사 우선 매칭(에서·으로 등). 그 뒤가 비단어여야 함.
+    if text[idx : idx + 2] in _KO_PARTICLES_2:
+        end = idx + 2
+        nxt = text[end] if end < len(text) else ""
+        return not (nxt and _BOUNDARY_CHAR_RE.match(nxt))
+    if ch in _KO_PARTICLES_1:
+        end = idx + 1
+        nxt = text[end] if end < len(text) else ""
+        return not (nxt and _BOUNDARY_CHAR_RE.match(nxt))
+    return False
+
+
+def _has_word_boundary_match(text: str, name: str) -> bool:
+    """`name` 이 `text` 안에 단어 경계로 등장하는지 검사.
+
+    좌측 인접 문자가 한글/영문/숫자면 합성어 일부로 보고 거부.
+    우측은 비단어이거나 한국어 조사(+비단어) 패턴이면 경계로 인정.
+    예) "SK하이닉스" 안의 "이닉스"는 좌측이 '하'(한글)이라 매칭되지 않음.
+    """
+    name_len = len(name)
+    pos = text.find(name)
+    while pos != -1:
+        left = text[pos - 1] if pos > 0 else ""
+        left_is_word = bool(left and _BOUNDARY_CHAR_RE.match(left))
+        if not left_is_word and _right_is_word_boundary(text, pos + name_len):
+            return True
+        pos = text.find(name, pos + 1)
+    return False
 
 
 def _extract_text_block(msg: Any) -> str:
