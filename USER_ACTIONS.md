@@ -37,7 +37,7 @@ Claude가 자동화할 수 없는 단계를 모두 여기에 정리했다. **번
 
 ### B-1. 의존성 설치
 ```bash
-cd C:\Users\junghwan.yoon\workspace\telegram-bot
+cd C:\Users\junghwan.yoon\workspace\1.테스트\telegram-bot
 pip install -r requirements.txt
 ```
 - [ ] 설치 완료
