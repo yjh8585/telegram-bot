@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from src.dtos import OutboundBlock, StockQuote
+from src.dtos import OutboundBlock, SourceRef, StockQuote
 from src.window import Window
 
 # Telegram MarkdownV2 예약 문자 — 모두 '\' 로 이스케이프해야 함.
 _RESERVED = "_*[]()~`>#+-=|{}.!"
 _TELEGRAM_LIMIT = 4000  # 실제 한도 4096, 여유분 96자
 _IMPORTANCE_EMOJI: dict[str, str] = {"high": "🔴", "medium": "🟡", "low": "⚪"}
+_MAX_SOURCES = 5  # 출처 채널 최대 표시 수
 
 
 def escape_md(text: str) -> str:
@@ -59,6 +60,19 @@ def _fmt_quote_line(q: StockQuote) -> str:
     return escape_md(base)
 
 
+def _dedup_sources(sources: list[SourceRef]) -> list[SourceRef]:
+    """채널별 중복 제거 후 _MAX_SOURCES 개까지만 반환 (formatter 안전망)."""
+    seen: set[str] = set()
+    out: list[SourceRef] = []
+    for s in sources:
+        if s.channel_username not in seen:
+            seen.add(s.channel_username)
+            out.append(s)
+            if len(out) >= _MAX_SOURCES:
+                break
+    return out
+
+
 def _fmt_topic(index: int, block: OutboundBlock) -> str:
     topic = block.topic
     emoji = _IMPORTANCE_EMOJI.get(topic.importance, "🟡")
@@ -68,7 +82,7 @@ def _fmt_topic(index: int, block: OutboundBlock) -> str:
         lines.append("📈 *" + escape_md("시세") + "*")
         lines.extend(_fmt_quote_line(q) for q in block.quotes)
     if topic.sources:
-        link_parts = [f"[{escape_md(s.channel_username)}]({s.url})" for s in topic.sources]
+        link_parts = [f"[{escape_md(s.channel_username)}]({s.url})" for s in _dedup_sources(topic.sources)]
         lines.append("🔗 " + ", ".join(link_parts))
     return "\n".join(lines)
 

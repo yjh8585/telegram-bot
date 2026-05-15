@@ -53,6 +53,15 @@ class ArticleFetcher:
                 with_metadata=True,
             )
             if not extracted:
+                # 블로그 등 복잡한 구조는 favor_recall 모드로 재시도
+                extracted = trafilatura.extract(
+                    html,
+                    output_format="json",
+                    include_comments=False,
+                    with_metadata=True,
+                    favor_recall=True,
+                )
+            if not extracted:
                 return None
             data = json.loads(extracted)
         except Exception as e:  # 외부 호출이므로 포괄 캐치 허용

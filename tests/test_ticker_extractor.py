@@ -90,9 +90,18 @@ def test_homonym_in_compound_word_not_matched() -> None:
 
 
 def test_standalone_name_matches_with_boundary() -> None:
-    """공백/구두점 등 비-단어 경계로 둘러싸인 종목명은 매칭되어야 한다."""
-    d = _mock_dict({"대상": "001680"})
+    """공백/구두점 등 비-단어 경계로 둘러싸인 종목명(3자 이상)은 매칭되어야 한다."""
+    d = _mock_dict({"카카오": "035720"})
     ext = TickerExtractor(d)
-    out = ext.extract("오늘 대상 신고가 갱신")
+    out = ext.extract("오늘 카카오 신고가 갱신")
     codes = [t.code for t in out]
-    assert "001680" in codes
+    assert "035720" in codes
+
+
+def test_two_char_name_not_matched_by_name() -> None:
+    """2자 이하 종목명은 이름 매칭 제외 — 일반 한국어(남성·레이 등)와 구별 불가 방지."""
+    d = _mock_dict({"남성": "004270", "레이": "228670"})
+    ext = TickerExtractor(d, client=None, model=None)
+    out = ext.extract("남성 주주들이 반발하고 레이 치료를 받았다")
+    codes = {t.code for t in out}
+    assert codes == set()

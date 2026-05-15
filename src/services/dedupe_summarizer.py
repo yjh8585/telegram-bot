@@ -16,7 +16,7 @@ from src.dtos import ClusteredTopic, Importance, PreCluster, SourceRef
 
 _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
 _MAX_TOKENS = 8192   # 클러스터 30개 이상 시 잘림 방지 (Haiku 4.5 최대 출력)
-_REP_TEXT_LIMIT = 1000
+_REP_TEXT_LIMIT = 2000  # 기사 본문이 포함되도록 확대 (이전: 1000)
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
 
@@ -32,12 +32,24 @@ def _extract_text_block(msg: Any) -> str:
     return "\n".join(parts).strip()
 
 
+def _merge_tickers(cluster: PreCluster) -> list[str]:
+    """클러스터 전체 멤버에서 중복 없이 티커 코드 수집."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in cluster.members:
+        for t in m.tickers:
+            if t.code not in seen:
+                seen.add(t.code)
+                out.append(t.code)
+    return out
+
+
 def _build_user_payload(clusters: list[PreCluster]) -> str:
     items = [
         {
             "cluster_id": i,
             "representative_text": c.representative.combined_text[:_REP_TEXT_LIMIT],
-            "tickers": [t.code for t in c.representative.tickers],
+            "tickers": _merge_tickers(c),
             "sources": [
                 {"channel": m.raw.channel_username, "message_id": m.raw.message_id}
                 for m in c.members

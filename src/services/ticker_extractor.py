@@ -37,7 +37,7 @@ _CRYPTO_KEYWORDS: dict[str, str] = {
     "DOGE": "DOGE/KRW",
 }
 
-_MIN_NAME_LEN = 2
+_MIN_NAME_LEN = 3  # 2자 이하 한국어는 일반 단어(남성·레이 등)와 구별 불가능해 false positive 발생
 _LLM_MAX_TOKENS = 400
 _LLM_PROMPT = (
     "다음 한국어 텍스트에서 언급된 주식·암호자산 티커를 모두 찾아 JSON 배열로만 응답하세요.\n"
