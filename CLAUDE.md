@@ -69,4 +69,4 @@ main.py  (진입점·오케스트레이션)
 
 ## 실행
 - 로컬: `make dry-run` / `make run`
-- CI: `.github/workflows/collect.yml` (UTC cron, KST 변환 주석 유지)
+- CI: GitHub Actions (`.github/workflows/collect.yml`). 정각 트리거는 외부 `cron-job.org`가 `workflow_dispatch`로 호출 (GitHub 내장 cron 지연 회피). 운영·점검 절차는 `USER_ACTIONS.md` C-5 참조.

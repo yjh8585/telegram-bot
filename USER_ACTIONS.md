@@ -212,6 +212,34 @@ cron-job.org **Run now**로 수동 테스트할 때는 Body에 `"no_commit": "tr
 | `no_commit: "true"` | ✅ | ❌ | 수동 테스트 (결과 확인용) |
 | `dry_run: "true"`  | ❌ | ❌ | GitHub Actions 로그만으로 검증 |
 
+#### C-5-6. 정기 점검 (월 1회 권장)
+
+cron-job.org가 무단으로 Authorization 헤더를 비우거나 정책 변경으로 시크릿을
+무효화하는 사례가 확인되었다. 26회 연속 실패 후 자동 비활성화될 때까지 기다리지
+말고 월 1회 정상 동작을 직접 점검한다.
+
+**점검 항목 (체크리스트)**
+- [ ] cron-job.org 대시보드 접속 → 4개 Job 모두 **Enabled** 상태인지
+- [ ] 4개 Job 각각 최근 실행이 `OK (204)`인지 (`Failed` 또는 `401/4xx` 없음)
+- [ ] PAT(`cron-job-dispatch-v2`) 만료일 확인 — 만료 30일 전이면 새 토큰 발급 후 갈아끼우기
+  - `https://github.com/settings/tokens` 에서 확인
+- [ ] 최근 24시간 GitHub Actions 실행 결과 4개(morning / late_morning / afternoon / evening) 모두 `success`인지
+  - 빠른 확인용 명령:
+    ```bash
+    gh api repos/yjh8585/telegram-bot/actions/workflows/collect.yml/runs \
+      --jq '.workflow_runs[0:8] | .[] | {created_at, conclusion, display_title}'
+    ```
+
+**실패 알림 자동화 (강력 권장)**
+cron-job.org Job별 설정 → **Notifications** → 실패 시 이메일 알림 ON.
+26회 누적 대기 없이 1~3회 실패만에 즉시 인지 가능.
+
+**401 발생 시 대처**
+1. cron-job.org Headers 탭의 `Authorization` 값이 `Bearer ghp_...` 형식 그대로인지 확인
+2. 값이 `Bearer`만 있고 토큰이 빠져있거나 비어 있으면 → 새 PAT 발급 후 4개 Job 헤더 모두 교체
+   (cron-job.org가 시크릿 마스킹 동작으로 Save 시 값을 날려버리는 사례 있음)
+3. PAT는 1Password 등 비밀번호 매니저에 저장해두면 복구 시 시간 절약
+
 ---
 
 ## D. (선택) Shrimp Task Manager MCP 활성화
