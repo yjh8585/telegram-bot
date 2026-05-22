@@ -15,7 +15,7 @@ from src.config import PROJECT_ROOT
 from src.dtos import ClusteredTopic, Importance, PreCluster, SourceRef
 
 _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
-_MAX_TOKENS = 8192   # 클러스터 30개 이상 시 잘림 방지 (Haiku 4.5 최대 출력)
+_MAX_TOKENS = 8192  # 클러스터 30개 이상 시 잘림 방지 (Haiku 4.5 최대 출력)
 _REP_TEXT_LIMIT = 2000  # 기사 본문이 포함되도록 확대 (이전: 1000)
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
@@ -130,13 +130,7 @@ class DedupeSummarizerService:
             response = self._client.messages.create(
                 model=self._model,
                 max_tokens=_MAX_TOKENS,
-                system=[
-                    {
-                        "type": "text",
-                        "text": self._system_prompt,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
+                system=self._system_prompt,
                 messages=[{"role": "user", "content": user_payload}],
             )
         except Exception as e:
