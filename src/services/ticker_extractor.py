@@ -10,6 +10,7 @@ from anthropic import Anthropic
 from loguru import logger
 
 from src.dtos import Ticker
+from src.logger import log_api_usage
 from src.services.ticker_dict import TickerDict
 
 _KR_CODE_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
@@ -112,6 +113,7 @@ class TickerExtractor:
             logger.warning(f"ticker LLM 폴백 실패: {e}")
             return []
 
+        log_api_usage("ticker_fallback", response)
         raw = _extract_text_block(response)
         return _parse_ticker_json(raw)
 

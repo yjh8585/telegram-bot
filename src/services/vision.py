@@ -8,6 +8,7 @@ from typing import Any
 from anthropic import Anthropic
 from loguru import logger
 
+from src.logger import log_api_usage
 from src.repositories.state_repo import StateRepository
 
 # dedupe_summarizer에서 이미지 필터 기준으로도 사용하는 공유 상수
@@ -18,7 +19,7 @@ _VISION_PROMPT = (
     "차트·표·캡처·뉴스 스크린샷이면 거기 담긴 숫자·종목명·날짜를 구체적으로 포함하세요. "
     f"특별한 금융 정보가 없다면 간단히 '{NO_INFO_MARKER}'이라고만 답하세요."
 )
-_MAX_TOKENS = 200   # 3줄 한국어 요약 기준 충분
+_MAX_TOKENS = 200  # 3줄 한국어 요약 기준 충분
 
 
 def _detect_media_type(data: bytes) -> str:
@@ -80,6 +81,7 @@ class VisionService:
             logger.warning(f"vision 호출 실패 sha1={image_sha1[:8]}.. err={e}")
             return None
 
+        log_api_usage("vision", response)
         description = _extract_text(response)
         if description:
             self._state.set_image_cache(image_sha1, description)

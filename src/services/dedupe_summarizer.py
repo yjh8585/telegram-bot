@@ -13,6 +13,7 @@ from loguru import logger
 
 from src.config import PROJECT_ROOT
 from src.dtos import ClusteredTopic, Importance, PreCluster, SourceRef
+from src.logger import log_api_usage
 
 _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
 _MAX_TOKENS = 8192  # 클러스터 30개 이상 시 잘림 방지 (Haiku 4.5 최대 출력)
@@ -136,5 +137,6 @@ class DedupeSummarizerService:
         except Exception as e:
             logger.error(f"Claude summarize 실패: {e}")
             return []
+        log_api_usage("summarize", response)
         raw_text = _extract_text_block(response)
         return _parse_topics(raw_text, clusters)

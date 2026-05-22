@@ -48,3 +48,23 @@ def setup_logger() -> Any:
     )
     _CONFIGURED = True
     return logger
+
+
+def log_api_usage(name: str, response: Any) -> None:
+    """Claude API 응답의 usage 토큰 4종을 한 줄로 INFO 로그.
+
+    회차당 누적 토큰을 1~2주 모아서 캐시 적용·입력 컷오프 등 비용 의사결정에 사용.
+    SDK 응답 형태가 바뀌어도 로깅 실패가 본 흐름을 막지 않도록 광범위 캐치.
+    """
+    try:
+        u = getattr(response, "usage", None)
+        if u is None:
+            return
+        logger.info(
+            f"usage[{name}] in={getattr(u, 'input_tokens', 0)} "
+            f"out={getattr(u, 'output_tokens', 0)} "
+            f"cache_r={getattr(u, 'cache_read_input_tokens', 0) or 0} "
+            f"cache_w={getattr(u, 'cache_creation_input_tokens', 0) or 0}"
+        )
+    except Exception as e:
+        logger.debug(f"usage 로깅 실패 name={name} err={e}")
