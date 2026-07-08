@@ -24,6 +24,7 @@
 ## 로깅
 - `loguru` 단독 사용. `print` 금지.
 - 민감 정보(토큰·세션 문자열·전화번호)는 로그에 남기지 않는다. 실수 방지용 필터가 필요하면 `src/logger.py`에 추가.
+- API usage 토큰(`log_api_usage`)은 stdout→GitHub Actions 런 로그에만 남는다(로컬 파일 없음). 비용·토큰 분석: `gh run view <id> --log | grep 'usage\['`.
 
 ## 아키텍처 (레이어드)
 ```
@@ -51,6 +52,7 @@ main.py  (진입점·오케스트레이션)
 - 커밋 메시지는 **한국어**, 현재형 어미("~추가", "~수정", "~개선").
 - 타입 prefix 권장: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`.
 - 중요 변경(파일 구조 변화, Phase 완료 등)마다 커밋.
+- Bash 도구로 다중행 커밋 시 PowerShell here-string(`@'...'@`) 금지(POSIX 셸이라 `@`가 남음). `git commit -F - <<'EOF'` 사용.
 
 ## 문서화
 - docstring·주석은 **한국어**.
@@ -70,3 +72,4 @@ main.py  (진입점·오케스트레이션)
 ## 실행
 - 로컬: `make dry-run` / `make run`
 - CI: GitHub Actions (`.github/workflows/collect.yml`). 정각 트리거는 외부 `cron-job.org`가 `workflow_dispatch`로 호출 (GitHub 내장 cron 지연 회피). 운영·점검 절차는 `USER_ACTIONS.md` C-5 참조.
+- 수집 채널은 `src/config.py`의 `CHANNELS` 튜플. 추가·삭제 시 `README.md`·`.claude/agents/telegram-bot-expert.md`의 채널 수 표기도 동기화.
