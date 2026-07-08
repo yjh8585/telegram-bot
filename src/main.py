@@ -27,6 +27,7 @@ from src.services.collector import CollectorService
 from src.services.dedupe_summarizer import DedupeSummarizerService
 from src.services.enrichment import EnrichmentService
 from src.services.formatter import build_messages
+from src.services.message_filter import filter_messages
 from src.services.notifier import NotifierService
 from src.services.pre_cluster import PreClusterService
 from src.services.stock import StockService
@@ -77,18 +78,18 @@ def _analyze(
     settings: Settings,
     state: StateRepository,
     client: Anthropic,
-    raw_msgs: list[RawMessage],
+    msgs: list[RawMessage],
+    ticker_dict: TickerDict,
+    ticker_extractor: TickerExtractor,
 ) -> list[OutboundBlock]:
-    """수집된 원본 메시지를 enrichment → pre_cluster → summarize → stock 순으로 파이프라인."""
-    ticker_dict = TickerDict(settings.state_db_path.parent)
+    """필터된 메시지를 enrichment → pre_cluster → summarize → stock 순으로 파이프라인."""
     article_fetcher = ArticleFetcher(state)
     vision = VisionService(client, settings.model, state)
-    ticker_extractor = TickerExtractor(ticker_dict, client, settings.model)
     enrichment = EnrichmentService(article_fetcher, ticker_extractor, vision)
     pre_cluster = PreClusterService(settings.dedupe_threshold)
     summarizer = DedupeSummarizerService(client, settings.model)
 
-    enriched = [enrichment.enrich(m) for m in raw_msgs]
+    enriched = [enrichment.enrich(m) for m in msgs]
     clusters = pre_cluster.cluster(enriched)
     topics = summarizer.summarize(clusters)
     stock = StockService(ticker_dict)
@@ -131,13 +132,22 @@ async def _run(window: Window, dry_run: bool, no_commit: bool) -> None:
             # 수집 0건 — "새 정보 없음" 정상 발송
             messages = build_messages(window, [])
         else:
-            blocks = _analyze(settings, state, client, raw_msgs)
-            if not blocks:
-                # 수집은 됐으나 Claude 응답 이상 또는 JSON 파싱 실패
-                raise RuntimeError(
-                    f"분석 파이프라인 결과 없음 (수집 {len(raw_msgs)}건 있음) — Claude 응답 또는 JSON 파싱 확인 필요"
+            ticker_dict = TickerDict(settings.state_db_path.parent)
+            ticker_extractor = TickerExtractor(ticker_dict, client, settings.model)
+            kept_msgs = filter_messages(raw_msgs, ticker_extractor)
+            if not kept_msgs:
+                # 수집은 됐으나 전부 저가치(잡담·빈 차트) — "새 정보 없음" 정상 발송
+                messages = build_messages(window, [])
+            else:
+                blocks = _analyze(
+                    settings, state, client, kept_msgs, ticker_dict, ticker_extractor
                 )
-            messages = build_messages(window, blocks)
+                if not blocks:
+                    # 유지 메시지는 있으나 결과 없음 — Claude 응답 이상 또는 JSON 파싱 실패
+                    raise RuntimeError(
+                        f"분석 파이프라인 결과 없음 (필터 후 {len(kept_msgs)}건 있음) — Claude 응답 또는 JSON 파싱 확인 필요"
+                    )
+                messages = build_messages(window, blocks)
 
         await _deliver(settings, messages, dry_run)
 

@@ -67,6 +67,15 @@ class TickerExtractor:
     def extract(self, text: str) -> list[Ticker]:
         if not text:
             return []
+        tickers = self.detect_without_llm(text)
+        if tickers:
+            return tickers
+        return self._llm_fallback(text)
+
+    def detect_without_llm(self, text: str) -> list[Ticker]:
+        """정규식·KRX 사전·코인 키워드로만 티커 추출(LLM 폴백 미사용). 사전 필터용."""
+        if not text:
+            return []
         tickers: list[Ticker] = []
         seen: set[tuple[str, str]] = set()
 
@@ -96,9 +105,11 @@ class TickerExtractor:
             if code:
                 add(code, "KR", name)
 
-        if tickers:
-            return tickers
-        return self._llm_fallback(text)
+        return tickers
+
+    def has_ticker(self, text: str) -> bool:
+        """LLM 없이 종목·코인이 검출되는지 여부(사전 필터용)."""
+        return bool(self.detect_without_llm(text))
 
     def _llm_fallback(self, text: str) -> list[Ticker]:
         if self._client is None or not self._model:
