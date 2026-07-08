@@ -10,15 +10,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # 프로젝트 루트 (src/config.py → parent.parent)
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
-# 수집 대상 채널 (t.me/<username> 기준). darthacking 중복 제거 → 7개.
+# 수집 대상 채널 (t.me/<username> 기준).
+# 코인 채널(seaotterbtc, darthacking)·비활성 채널(desperatestudycafe) 제외 → 4개.
 CHANNELS: tuple[str, ...] = (
     "FastStockNews",
     "Yeouido_Lab",
     "TNBfolio",
-    "darthacking",
-    "desperatestudycafe",
     "triple_stock",
-    "seaotterbtc",
 )
 
 
