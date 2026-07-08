@@ -16,7 +16,9 @@ from src.dtos import ClusteredTopic, Importance, PreCluster, SourceRef
 from src.logger import log_api_usage
 
 _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
-_MAX_TOKENS = 8192  # 클러스터 30개 이상 시 잘림 방지 (Haiku 4.5 최대 출력)
+_MAX_TOKENS = 8192  # Haiku 4.5 최대 출력(고정)
+# 출력 8192 토큰 잘림 회피용 배치 크기. 토픽당 ~200토큰 가정 → 25×200=5000으로 여유 마진.
+_MAX_CLUSTERS_PER_CALL = 25
 _REP_TEXT_LIMIT = 2000  # 기사 본문이 포함되도록 확대 (이전: 1000)
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
@@ -124,8 +126,17 @@ class DedupeSummarizerService:
         self._system_prompt = _load_system_prompt()
 
     def summarize(self, clusters: list[PreCluster]) -> list[ClusteredTopic]:
+        """클러스터를 배치로 나눠 요약(출력 8192 토큰 잘림 방지). 배치별 실패는 격리."""
         if not clusters:
             return []
+        topics: list[ClusteredTopic] = []
+        for start in range(0, len(clusters), _MAX_CLUSTERS_PER_CALL):
+            batch = clusters[start : start + _MAX_CLUSTERS_PER_CALL]
+            topics.extend(self._summarize_batch(batch))
+        return topics
+
+    def _summarize_batch(self, clusters: list[PreCluster]) -> list[ClusteredTopic]:
+        """단일 배치를 1회 호출로 요약. cluster_id는 배치 내 0부터라 출처 매핑이 그대로 맞는다."""
         user_payload = _build_user_payload(clusters)
         try:
             response = self._client.messages.create(
@@ -135,7 +146,7 @@ class DedupeSummarizerService:
                 messages=[{"role": "user", "content": user_payload}],
             )
         except Exception as e:
-            logger.error(f"Claude summarize 실패: {e}")
+            logger.error(f"Claude summarize 실패(배치 {len(clusters)}건): {e}")
             return []
         log_api_usage("summarize", response)
         raw_text = _extract_text_block(response)

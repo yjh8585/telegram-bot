@@ -100,6 +100,56 @@ def test_empty_title_or_summary_filtered() -> None:
     assert topics[0].title == "정상"
 
 
+def test_batches_when_over_limit(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """클러스터가 배치 상한을 넘으면 나눠 호출하고 전체 토픽을 모아 반환한다."""
+    import src.services.dedupe_summarizer as mod
+
+    monkeypatch.setattr(mod, "_MAX_CLUSTERS_PER_CALL", 2)
+    client = MagicMock()
+    # 3개 클러스터, 배치 2 → 2회 호출(배치별 cluster_id는 0부터)
+    client.messages.create.side_effect = [
+        _mock_response(
+            '[{"cluster_id": 0, "title": "A", "summary": "s", "importance": "low", "tickers": []},'
+            '{"cluster_id": 1, "title": "B", "summary": "s", "importance": "low", "tickers": []}]'
+        ),
+        _mock_response(
+            '[{"cluster_id": 0, "title": "C", "summary": "s", "importance": "low", "tickers": []}]'
+        ),
+    ]
+    svc = DedupeSummarizerService(client, "model")
+    clusters = []
+    for mid in (1, 2, 3):
+        m = _enriched("ch", mid, f"text {mid}")
+        clusters.append(PreCluster(representative=m, members=[m]))
+    topics = svc.summarize(clusters)
+    assert client.messages.create.call_count == 2
+    assert [t.title for t in topics] == ["A", "B", "C"]
+    # 두 번째 배치의 cluster_id 0 → 전역 clusters[2](message_id 3)로 매핑
+    c_topic = next(t for t in topics if t.title == "C")
+    assert c_topic.sources[0].message_id == 3
+
+
+def test_one_failed_batch_does_not_kill_others(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """한 배치 호출이 실패해도 나머지 배치 결과는 유지된다(graceful degrade)."""
+    import src.services.dedupe_summarizer as mod
+
+    monkeypatch.setattr(mod, "_MAX_CLUSTERS_PER_CALL", 1)
+    client = MagicMock()
+    client.messages.create.side_effect = [
+        RuntimeError("API 오류"),
+        _mock_response(
+            '[{"cluster_id": 0, "title": "B", "summary": "s", "importance": "low", "tickers": []}]'
+        ),
+    ]
+    svc = DedupeSummarizerService(client, "model")
+    clusters = []
+    for mid in (1, 2):
+        m = _enriched("ch", mid, f"text {mid}")
+        clusters.append(PreCluster(representative=m, members=[m]))
+    topics = svc.summarize(clusters)
+    assert [t.title for t in topics] == ["B"]
+
+
 def test_same_channel_sources_deduped() -> None:
     """같은 채널의 여러 멤버가 있어도 출처는 채널당 1개로 축약."""
     client = MagicMock()
