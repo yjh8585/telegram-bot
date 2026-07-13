@@ -65,6 +65,10 @@ class RecentDedupService:
         # 링크만 있어 본문이 빈 메시지는 비교에서 제외(무조건 유지).
         cmp_idx = [i for i, t in enumerate(stripped) if t]
         if not recent_texts or not cmp_idx:
+            logger.info(
+                f"recent-dedup: 비교 생략(기억 {len(recent_texts)}건·대상 {len(cmp_idx)}건) "
+                f"→ 전체 {len(messages)}건 유지"
+            )
             return messages
         sim = self._similarity([stripped[i] for i in cmp_idx], recent_texts)
         local_drop = _drop_indices(sim, self._threshold)

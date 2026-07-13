@@ -12,10 +12,12 @@ import argparse
 import asyncio
 import sys
 import traceback
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from anthropic import Anthropic
 from loguru import logger
+from sentence_transformers import SentenceTransformer
 
 from src.config import Settings, get_settings
 from src.dtos import ClusteredTopic, Market, OutboundBlock, RawMessage, Ticker
@@ -29,7 +31,8 @@ from src.services.enrichment import EnrichmentService
 from src.services.formatter import build_messages
 from src.services.message_filter import filter_messages
 from src.services.notifier import NotifierService
-from src.services.pre_cluster import PreClusterService
+from src.services.pre_cluster import DEFAULT_MODEL_NAME, PreClusterService
+from src.services.recent_dedup import RecentDedupService
 from src.services.stock import StockService
 from src.services.ticker_dict import TickerDict
 from src.services.ticker_extractor import TickerExtractor
@@ -81,12 +84,13 @@ def _analyze(
     msgs: list[RawMessage],
     ticker_dict: TickerDict,
     ticker_extractor: TickerExtractor,
+    model: SentenceTransformer,
 ) -> list[OutboundBlock]:
     """필터된 메시지를 enrichment → pre_cluster → summarize → stock 순으로 파이프라인."""
     article_fetcher = ArticleFetcher(state)
     vision = VisionService(client, settings.model, state)
     enrichment = EnrichmentService(article_fetcher, ticker_extractor, vision)
-    pre_cluster = PreClusterService(settings.dedupe_threshold)
+    pre_cluster = PreClusterService(settings.dedupe_threshold, model)
     summarizer = DedupeSummarizerService(client, settings.model)
 
     enriched = [enrichment.enrich(m) for m in msgs]
@@ -94,6 +98,68 @@ def _analyze(
     topics = summarizer.summarize(clusters)
     stock = StockService(ticker_dict)
     return _build_blocks(topics, stock)
+
+
+def _dedup_recent(
+    settings: Settings,
+    state: StateRepository,
+    model: SentenceTransformer,
+    msgs: list[RawMessage],
+) -> list[RawMessage]:
+    """cross-run 중복 제거. 실패 시 graceful degrade(전체 유지)."""
+    dedup = RecentDedupService(
+        settings.recent_dedup_threshold, settings.recent_dedup_window_hours, state, model
+    )
+    try:
+        return dedup.filter_new(msgs)
+    except Exception as e:
+        logger.error(f"recent-dedup 실패, 전체 유지: {e}")
+        return msgs
+
+
+def _process(
+    settings: Settings,
+    state: StateRepository,
+    client: Anthropic,
+    raw_msgs: list[RawMessage],
+    window: Window,
+) -> tuple[list[str], list[ClusteredTopic]]:
+    """수집분을 필터·중복제거·분석해 (발송 메시지, 발송 토픽)을 반환."""
+    if not raw_msgs:
+        return build_messages(window, []), []
+    ticker_dict = TickerDict(settings.state_db_path.parent)
+    ticker_extractor = TickerExtractor(ticker_dict, client, settings.model)
+    kept_msgs = filter_messages(raw_msgs, ticker_extractor)
+    if not kept_msgs:
+        return build_messages(window, []), []
+    model = SentenceTransformer(DEFAULT_MODEL_NAME)
+    fresh_msgs = _dedup_recent(settings, state, model, kept_msgs)
+    if not fresh_msgs:
+        # 전부 최근에 다룬 주제 — "새 정보 없음" 정상 발송
+        return build_messages(window, []), []
+    blocks = _analyze(
+        settings, state, client, fresh_msgs, ticker_dict, ticker_extractor, model
+    )
+    if not blocks:
+        raise RuntimeError(
+            f"분석 파이프라인 결과 없음 (중복제거 후 {len(fresh_msgs)}건 있음) "
+            "— Claude 응답 또는 JSON 파싱 확인 필요"
+        )
+    return build_messages(window, blocks), [b.topic for b in blocks]
+
+
+def _record_sent_topics(
+    state: StateRepository, topics: list[ClusteredTopic], window_hours: int
+) -> None:
+    """발송 토픽의 제목+요약을 recent_topics에 기록하고 오래된 항목을 프루닝."""
+    try:
+        now = datetime.now(UTC)
+        if topics:
+            state.add_recent_topics([f"{t.title}\n{t.summary}" for t in topics], now)
+            logger.info(f"recent_topics 기록 {len(topics)}건")
+        state.prune_recent_topics(now - timedelta(hours=window_hours * 2))
+    except Exception as e:
+        logger.error(f"recent_topics 기록/프루닝 실패: {e}")
 
 
 async def _deliver(
@@ -128,38 +194,20 @@ async def _run(window: Window, dry_run: bool, no_commit: bool) -> None:
             raw_msgs = await collector.collect(window)
 
         logger.info(f"총 {len(raw_msgs)}건 수집")
-        if not raw_msgs:
-            # 수집 0건 — "새 정보 없음" 정상 발송
-            messages = build_messages(window, [])
-        else:
-            ticker_dict = TickerDict(settings.state_db_path.parent)
-            ticker_extractor = TickerExtractor(ticker_dict, client, settings.model)
-            kept_msgs = filter_messages(raw_msgs, ticker_extractor)
-            if not kept_msgs:
-                # 수집은 됐으나 전부 저가치(잡담·빈 차트) — "새 정보 없음" 정상 발송
-                messages = build_messages(window, [])
-            else:
-                blocks = _analyze(
-                    settings, state, client, kept_msgs, ticker_dict, ticker_extractor
-                )
-                if not blocks:
-                    # 유지 메시지는 있으나 결과 없음 — Claude 응답 이상 또는 JSON 파싱 실패
-                    raise RuntimeError(
-                        f"분석 파이프라인 결과 없음 (필터 후 {len(kept_msgs)}건 있음) — Claude 응답 또는 JSON 파싱 확인 필요"
-                    )
-                messages = build_messages(window, blocks)
 
+        messages, sent_topics = _process(settings, state, client, raw_msgs, window)
         await _deliver(settings, messages, dry_run)
 
-        # last_seen 갱신: dry_run/no_commit이면 건너뜀
+        # last_seen·recent_topics 갱신: dry_run/no_commit이면 건너뜀
         if dry_run:
             return
         if no_commit:
-            logger.info("--no-commit 옵션 — last_seen 갱신 생략")
+            logger.info("--no-commit 옵션 — last_seen·recent_topics 갱신 생략")
             return
         if raw_msgs:
             collector.commit_last_seen(raw_msgs)
             logger.info("last_seen 갱신 완료")
+        _record_sent_topics(state, sent_topics, settings.recent_dedup_window_hours)
     finally:
         state.close()
 
