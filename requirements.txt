@@ -15,6 +15,10 @@ pandas>=2.2.0
 # 뉴스 본문 추출
 trafilatura>=1.12.0
 
+# 이미지 처리 (비용 절감: vision 다운샘플 + 유사이미지 perceptual 캐시)
+pillow>=10.4.0
+imagehash>=4.3.1
+
 # 임베딩 (비용 절감: 사전 중복 제거)
 sentence-transformers>=3.3.0
 scikit-learn>=1.5.0

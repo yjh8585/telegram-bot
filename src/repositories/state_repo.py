@@ -53,7 +53,14 @@ class StateRepository:
         self._conn.row_factory = sqlite3.Row
         for stmt in _SCHEMA:
             self._conn.execute(stmt)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """기존 DB(Actions 캐시)에 없는 컬럼을 idempotent하게 추가."""
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(image_cache)")}
+        if "phash" not in cols:
+            self._conn.execute("ALTER TABLE image_cache ADD COLUMN phash TEXT")
 
     def close(self) -> None:
         self._conn.close()
@@ -101,15 +108,27 @@ class StateRepository:
         ).fetchone()
         return row["description"] if row else None
 
-    def set_image_cache(self, sha1: str, description: str) -> None:
+    def set_image_cache(self, sha1: str, description: str, phash: str | None = None) -> None:
         self._conn.execute(
             """
-            INSERT OR REPLACE INTO image_cache(image_sha1, description, created_at)
-            VALUES (?, ?, ?)
+            INSERT OR REPLACE INTO image_cache(image_sha1, description, created_at, phash)
+            VALUES (?, ?, ?, ?)
             """,
-            (sha1, description, _now_iso()),
+            (sha1, description, _now_iso(), phash),
         )
         self._conn.commit()
+
+    def get_image_phashes(self, limit: int) -> list[tuple[str, str]]:
+        """(phash, description) 쌍을 최근 순으로 반환. 유사이미지 캐시 매칭용."""
+        rows = self._conn.execute(
+            """
+            SELECT phash, description FROM image_cache
+            WHERE phash IS NOT NULL AND description IS NOT NULL
+            ORDER BY created_at DESC LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [(row["phash"], row["description"]) for row in rows]
 
     # --- recent_topics ---------------------------------------------
     def get_recent_topic_texts(self, since: datetime) -> list[str]:

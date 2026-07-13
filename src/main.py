@@ -88,7 +88,13 @@ def _analyze(
 ) -> list[OutboundBlock]:
     """필터된 메시지를 enrichment → pre_cluster → summarize → stock 순으로 파이프라인."""
     article_fetcher = ArticleFetcher(state)
-    vision = VisionService(client, settings.model, state)
+    vision = VisionService(
+        client,
+        settings.model,
+        state,
+        enable_phash_cache=settings.enable_image_phash_cache,
+        phash_max_distance=settings.image_phash_max_distance,
+    )
     enrichment = EnrichmentService(article_fetcher, ticker_extractor, vision)
     pre_cluster = PreClusterService(settings.dedupe_threshold, model)
     summarizer = DedupeSummarizerService(client, settings.model)

@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # LLM 폴백. 호출 회피(비용↓)를 위해 기본 비활성화. env로 되돌리기 가능.
     enable_ticker_llm_fallback: bool = False
 
+    # 비용 절감: 유사 이미지(perceptual hash) 캐시. 기본 shadow(호출 유지·로그만) —
+    # Actions 로그로 오탐 없음 확인 후 True로 켠다. distance는 phash Hamming(0~64).
+    enable_image_phash_cache: bool = False
+    image_phash_max_distance: int = 4
+
     # 경로
     tz: str = "Asia/Seoul"
     state_db_path: Path = Field(default=PROJECT_ROOT / "state" / "state.db")
