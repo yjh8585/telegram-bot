@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # 클러스터링·동작
     dedupe_threshold: float = 0.82
-    recent_dedup_threshold: float = 0.85
+    recent_dedup_threshold: float = 0.90
     recent_dedup_window_hours: int = 24
 
     # 경로
