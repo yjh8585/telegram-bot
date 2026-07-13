@@ -9,12 +9,18 @@ import numpy as np
 
 from src.dtos import RawMessage
 from src.repositories.state_repo import StateRepository
-from src.services.recent_dedup import RecentDedupService, _drop_indices
+from src.services.recent_dedup import RecentDedupService, _drop_indices, _strip_urls
 
 
 def test_drop_indices_basic() -> None:
     sim = np.array([[0.9, 0.1], [0.2, 0.3]], dtype=np.float32)
     assert _drop_indices(sim, 0.85) == {0}
+
+
+def test_strip_urls_removes_links() -> None:
+    out = _strip_urls("삼성전자 실적 https://n.news.naver.com/article/092/0002430192")
+    assert "http" not in out
+    assert "삼성전자 실적" in out
 
 
 def test_drop_indices_empty() -> None:
@@ -72,6 +78,23 @@ def test_filter_new_empty_store_keeps_all(tmp_path: Path) -> None:
     try:
         svc = RecentDedupService(0.85, 24, repo, model)  # type: ignore[arg-type]
         kept = svc.filter_new([_msg("a", 1)], now=datetime(2026, 7, 13, tzinfo=UTC))
+        assert len(kept) == 1
+    finally:
+        repo.close()
+
+
+def test_filter_new_url_only_message_kept(tmp_path: Path) -> None:
+    """링크만 있는 메시지는 URL 제거 후 빈 텍스트 → 비교에서 빠져 유지된다."""
+    model = _FakeModel({"삼성 실적": [1.0, 0.0]})
+    repo = StateRepository(tmp_path / "s.db")
+    try:
+        t0 = datetime(2026, 7, 13, tzinfo=UTC)
+        repo.add_recent_topics(["삼성 실적"], t0)
+        svc = RecentDedupService(0.85, 24, repo, model)  # type: ignore[arg-type]
+        kept = svc.filter_new(
+            [_msg("https://n.news.naver.com/article/092/0002430192", 1)],
+            now=t0 + timedelta(hours=1),
+        )
         assert len(kept) == 1
     finally:
         repo.close()

@@ -21,6 +21,7 @@ from src.dtos import RawMessage
 from src.repositories.telethon_repo import TelethonRepository
 from src.services.message_filter import filter_messages
 from src.services.pre_cluster import DEFAULT_MODEL_NAME
+from src.services.recent_dedup import _strip_urls
 from src.services.ticker_dict import TickerDict
 from src.services.ticker_extractor import TickerExtractor
 
@@ -49,28 +50,32 @@ def _snip(text: str) -> str:
 
 
 def _report(memory: list[RawMessage], new: list[RawMessage], model: SentenceTransformer) -> None:
-    if not memory or not new:
-        print(f"⚠ memory={len(memory)}건 / new={len(new)}건 — 한쪽이 비어 비교 불가.")
+    # recent_dedup과 동일하게 URL을 제거하고, 본문이 빈(링크만) 항목은 비교에서 제외.
+    mem_pairs = [(m, t) for m in memory if (t := _strip_urls(m.text or ""))]
+    new_pairs = [(m, t) for m in new if (t := _strip_urls(m.text or ""))]
+    print(f"URL 제거·빈 본문 제외 후 비교 대상: memory {len(mem_pairs)}건 / new {len(new_pairs)}건")
+    if not mem_pairs or not new_pairs:
+        print("⚠ 한쪽이 비어 비교 불가.")
         return
     mem_emb = model.encode(
-        [m.text or "" for m in memory], normalize_embeddings=True, convert_to_numpy=True
+        [t for _, t in mem_pairs], normalize_embeddings=True, convert_to_numpy=True
     )
     new_emb = model.encode(
-        [m.text or "" for m in new], normalize_embeddings=True, convert_to_numpy=True
+        [t for _, t in new_pairs], normalize_embeddings=True, convert_to_numpy=True
     )
     sim = new_emb @ mem_emb.T
     best = sim.max(axis=1)
     best_j = sim.argmax(axis=1)
     for th in _THRESHOLDS:
         drops = int((best >= th).sum())
-        print(f"\n=== threshold {th:.2f}: new {len(new)}건 중 {drops}건 제거 ===")
+        print(f"\n=== threshold {th:.2f}: new {len(new_pairs)}건 중 {drops}건 제거 ===")
         if abs(th - _DETAIL_TH) < 1e-9:
-            for i in range(len(new)):
+            for i in range(len(new_pairs)):
                 if best[i] >= th:
                     print(
                         f"  drop sim={best[i]:.3f}\n"
-                        f"    new : {_snip(new[i].text)}\n"
-                        f"    ↔mem: {_snip(memory[int(best_j[i])].text)}"
+                        f"    new : {_snip(new_pairs[i][0].text)}\n"
+                        f"    ↔mem: {_snip(mem_pairs[int(best_j[i])][0].text)}"
                     )
 
 
