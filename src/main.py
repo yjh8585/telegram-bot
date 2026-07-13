@@ -128,7 +128,9 @@ def _process(
     if not raw_msgs:
         return build_messages(window, []), []
     ticker_dict = TickerDict(settings.state_db_path.parent)
-    ticker_extractor = TickerExtractor(ticker_dict, client, settings.model)
+    ticker_extractor = TickerExtractor(
+        ticker_dict, client, settings.model, enable_llm_fallback=settings.enable_ticker_llm_fallback
+    )
     kept_msgs = filter_messages(raw_msgs, ticker_extractor)
     if not kept_msgs:
         return build_messages(window, []), []

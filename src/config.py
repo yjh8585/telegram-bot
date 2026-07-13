@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     recent_dedup_threshold: float = 0.90
     recent_dedup_window_hours: int = 24
 
+    # 비용 절감: 정규식·KRX 사전·코인 키워드로 못 찾은 종목을 Claude로 재추출하는
+    # LLM 폴백. 호출 회피(비용↓)를 위해 기본 비활성화. env로 되돌리기 가능.
+    enable_ticker_llm_fallback: bool = False
+
     # 경로
     tz: str = "Asia/Seoul"
     state_db_path: Path = Field(default=PROJECT_ROOT / "state" / "state.db")

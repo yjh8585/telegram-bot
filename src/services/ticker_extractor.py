@@ -59,10 +59,12 @@ class TickerExtractor:
         ticker_dict: TickerDict,
         client: Anthropic | None = None,
         model: str | None = None,
+        enable_llm_fallback: bool = True,
     ) -> None:
         self._dict = ticker_dict
         self._client = client
         self._model = model
+        self._enable_llm_fallback = enable_llm_fallback
 
     def extract(self, text: str) -> list[Ticker]:
         if not text:
@@ -112,7 +114,7 @@ class TickerExtractor:
         return bool(self.detect_without_llm(text))
 
     def _llm_fallback(self, text: str) -> list[Ticker]:
-        if self._client is None or not self._model:
+        if not self._enable_llm_fallback or self._client is None or not self._model:
             return []
         try:
             response = self._client.messages.create(

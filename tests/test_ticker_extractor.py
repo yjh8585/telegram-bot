@@ -105,3 +105,27 @@ def test_two_char_name_not_matched_by_name() -> None:
     out = ext.extract("남성 주주들이 반발하고 레이 치료를 받았다")
     codes = {t.code for t in out}
     assert codes == set()
+
+
+def test_llm_fallback_disabled_does_not_call_client() -> None:
+    """enable_llm_fallback=False면 사전 미검출 시에도 Claude를 호출하지 않는다(비용 절감)."""
+    d = _mock_dict({})
+    client = MagicMock()
+    ext = TickerExtractor(d, client=client, model="haiku", enable_llm_fallback=False)
+    out = ext.extract("사전에 없는 종목 잡담")
+    assert out == []
+    client.messages.create.assert_not_called()
+
+
+def test_llm_fallback_enabled_calls_client() -> None:
+    """enable_llm_fallback=True(기본)면 사전 미검출 시 Claude 폴백을 호출한다."""
+    d = _mock_dict({})
+    client = MagicMock()
+    text_block = MagicMock()
+    text_block.type = "text"
+    text_block.text = "[]"
+    client.messages.create.return_value = MagicMock(content=[text_block])
+    ext = TickerExtractor(d, client=client, model="haiku")
+    out = ext.extract("사전에 없는 종목 잡담")
+    assert out == []
+    client.messages.create.assert_called_once()
