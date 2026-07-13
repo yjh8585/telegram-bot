@@ -6,9 +6,8 @@ import json
 import re
 from typing import Any, cast
 
-from json_repair import repair_json
-
 from anthropic import Anthropic
+from json_repair import repair_json
 from loguru import logger
 
 from src.config import PROJECT_ROOT
@@ -19,7 +18,6 @@ _PROMPT_PATH = PROJECT_ROOT / "src" / "prompts" / "cluster_merge.md"
 _MAX_TOKENS = 8192  # Haiku 4.5 최대 출력(고정)
 # 출력 8192 토큰 잘림 회피용 배치 크기. 토픽당 ~200토큰 가정 → 25×200=5000으로 여유 마진.
 _MAX_CLUSTERS_PER_CALL = 25
-_REP_TEXT_LIMIT = 2000  # 기사 본문이 포함되도록 확대 (이전: 1000)
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
 
@@ -47,11 +45,11 @@ def _merge_tickers(cluster: PreCluster) -> list[str]:
     return out
 
 
-def _build_user_payload(clusters: list[PreCluster]) -> str:
+def _build_user_payload(clusters: list[PreCluster], rep_text_limit: int) -> str:
     items = [
         {
             "cluster_id": i,
-            "representative_text": c.representative.combined_text[:_REP_TEXT_LIMIT],
+            "representative_text": c.representative.combined_text[:rep_text_limit],
             "tickers": _merge_tickers(c),
             "sources": [
                 {"channel": m.raw.channel_username, "message_id": m.raw.message_id}
@@ -62,6 +60,19 @@ def _build_user_payload(clusters: list[PreCluster]) -> str:
     ]
     header = "다음 클러스터들을 시스템 프롬프트에 따라 JSON 배열로 요약하세요.\n\n입력:\n"
     return header + json.dumps(items, ensure_ascii=False, indent=2)
+
+
+def _cap_clusters(clusters: list[PreCluster], max_topics: int) -> list[PreCluster]:
+    """max_topics>0이면 멤버수(신호 강도) 상위 N개만 유지(원래 순서 보존)."""
+    if max_topics <= 0 or len(clusters) <= max_topics:
+        return clusters
+    ranked = sorted(range(len(clusters)), key=lambda i: len(clusters[i].members), reverse=True)
+    keep = set(ranked[:max_topics])
+    logger.info(
+        f"summarize: 클러스터 {len(clusters)}개 → 상위 {max_topics}개 유지"
+        f"(제거 {len(clusters) - max_topics}개, 멤버수 기준)"
+    )
+    return [c for i, c in enumerate(clusters) if i in keep]
 
 
 def _strip_code_fences(text: str) -> str:
@@ -120,15 +131,24 @@ def _build_topic(item: Any, clusters: list[PreCluster]) -> ClusteredTopic | None
 class DedupeSummarizerService:
     """Claude에 1회 호출로 전체 클러스터를 통합 요약."""
 
-    def __init__(self, client: Anthropic, model: str) -> None:
+    def __init__(
+        self,
+        client: Anthropic,
+        model: str,
+        rep_text_limit: int = 1600,
+        max_topics: int = 0,
+    ) -> None:
         self._client = client
         self._model = model
+        self._rep_text_limit = rep_text_limit
+        self._max_topics = max_topics
         self._system_prompt = _load_system_prompt()
 
     def summarize(self, clusters: list[PreCluster]) -> list[ClusteredTopic]:
         """클러스터를 배치로 나눠 요약(출력 8192 토큰 잘림 방지). 배치별 실패는 격리."""
         if not clusters:
             return []
+        clusters = _cap_clusters(clusters, self._max_topics)
         topics: list[ClusteredTopic] = []
         for start in range(0, len(clusters), _MAX_CLUSTERS_PER_CALL):
             batch = clusters[start : start + _MAX_CLUSTERS_PER_CALL]
@@ -137,7 +157,7 @@ class DedupeSummarizerService:
 
     def _summarize_batch(self, clusters: list[PreCluster]) -> list[ClusteredTopic]:
         """단일 배치를 1회 호출로 요약. cluster_id는 배치 내 0부터라 출처 매핑이 그대로 맞는다."""
-        user_payload = _build_user_payload(clusters)
+        user_payload = _build_user_payload(clusters, self._rep_text_limit)
         try:
             response = self._client.messages.create(
                 model=self._model,

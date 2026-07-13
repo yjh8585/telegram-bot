@@ -165,3 +165,34 @@ def test_same_channel_sources_deduped() -> None:
     assert topics[0].sources[0].channel_username == "darthacking"
     # 첫 등장 멤버의 message_id가 채택되어야 함
     assert topics[0].sources[0].message_id == 101
+
+
+def test_cap_clusters_keeps_top_by_member_count() -> None:
+    """max_topics>0이면 멤버수 상위 N개만 남기고 원래 순서를 보존한다."""
+    from src.services.dedupe_summarizer import _cap_clusters
+
+    def _cluster(n_members: int) -> PreCluster:
+        ms = [_enriched("ch", i, "x") for i in range(1, n_members + 1)]
+        return PreCluster(representative=ms[0], members=ms)
+
+    clusters = [_cluster(1), _cluster(5), _cluster(2), _cluster(3)]
+    kept = _cap_clusters(clusters, max_topics=2)
+    assert [len(c.members) for c in kept] == [5, 3]
+
+
+def test_cap_clusters_off_or_under_limit_returns_same() -> None:
+    from src.services.dedupe_summarizer import _cap_clusters
+
+    m = _enriched("ch", 1, "x")
+    clusters = [PreCluster(representative=m, members=[m])]
+    assert _cap_clusters(clusters, max_topics=0) is clusters
+    assert _cap_clusters(clusters, max_topics=5) is clusters
+
+
+def test_rep_text_limit_truncates_payload() -> None:
+    from src.services.dedupe_summarizer import _build_user_payload
+
+    m = _enriched("ch", 1, "가" * 3000)
+    payload = _build_user_payload([PreCluster(representative=m, members=[m])], rep_text_limit=100)
+    assert "가" * 100 in payload
+    assert "가" * 101 not in payload

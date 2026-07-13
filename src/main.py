@@ -97,7 +97,12 @@ def _analyze(
     )
     enrichment = EnrichmentService(article_fetcher, ticker_extractor, vision)
     pre_cluster = PreClusterService(settings.dedupe_threshold, model)
-    summarizer = DedupeSummarizerService(client, settings.model)
+    summarizer = DedupeSummarizerService(
+        client,
+        settings.model,
+        rep_text_limit=settings.summarize_rep_text_limit,
+        max_topics=settings.summarize_max_topics,
+    )
 
     enriched = [enrichment.enrich(m) for m in msgs]
     clusters = pre_cluster.cluster(enriched)

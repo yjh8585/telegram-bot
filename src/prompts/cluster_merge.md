@@ -8,7 +8,7 @@
 {
   "cluster_id": <입력의 cluster_id와 동일한 정수>,
   "title": "50자 이내 핵심을 담은 한국어 제목",
-  "summary": "3~5문장 한국어 해설. 왜 중요한지(시장 영향·숫자·배경) 포함.",
+  "summary": "2~3문장 한국어 해설. 핵심 사실·수치와 시장 영향만 간결히. 배경 설명·수식어는 생략.",
   "importance": "high" | "medium" | "low",
   "tickers": ["관련 KRX 6자리 코드·미국 티커·CRYPTO 코드 배열"]
 }

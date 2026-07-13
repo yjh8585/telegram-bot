@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     enable_image_phash_cache: bool = False
     image_phash_max_distance: int = 4
 
+    # 비용 절감: summarize 입력(클러스터 대표 본문 컷오프)·출력 토픽 상한.
+    # max_topics=0은 무제한(끔). >0이면 멤버수(신호 강도) 상위 N개만 요약.
+    summarize_rep_text_limit: int = 1600
+    summarize_max_topics: int = 0
+
     # 경로
     tz: str = "Asia/Seoul"
     state_db_path: Path = Field(default=PROJECT_ROOT / "state" / "state.db")
