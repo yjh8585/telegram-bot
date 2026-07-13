@@ -31,9 +31,10 @@ _SCHEMA: tuple[str, ...] = (
     )
     """,
     """
-    CREATE TABLE IF NOT EXISTS sent_hash (
-        content_hash TEXT PRIMARY KEY,
-        sent_at TEXT NOT NULL
+    CREATE TABLE IF NOT EXISTS recent_topics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL
     )
     """,
 )
@@ -110,16 +111,27 @@ class StateRepository:
         )
         self._conn.commit()
 
-    # --- sent_hash -------------------------------------------------
-    def was_sent(self, content_hash: str) -> bool:
-        row = self._conn.execute(
-            "SELECT 1 FROM sent_hash WHERE content_hash = ?", (content_hash,)
-        ).fetchone()
-        return row is not None
+    # --- recent_topics ---------------------------------------------
+    def get_recent_topic_texts(self, since: datetime) -> list[str]:
+        """created_at >= since 인 발송 토픽 텍스트를 id 순으로 반환."""
+        rows = self._conn.execute(
+            "SELECT text FROM recent_topics WHERE created_at >= ? ORDER BY id",
+            (since.isoformat(),),
+        ).fetchall()
+        return [row["text"] for row in rows]
 
-    def mark_sent(self, content_hash: str) -> None:
+    def add_recent_topics(self, texts: list[str], now: datetime) -> None:
+        """발송 토픽 텍스트들을 현재 시각으로 기록."""
+        ts = now.isoformat()
+        self._conn.executemany(
+            "INSERT INTO recent_topics(text, created_at) VALUES (?, ?)",
+            [(t, ts) for t in texts],
+        )
+        self._conn.commit()
+
+    def prune_recent_topics(self, before: datetime) -> None:
+        """created_at < before 인 오래된 행 삭제(테이블 무한 증가 방지)."""
         self._conn.execute(
-            "INSERT OR IGNORE INTO sent_hash(content_hash, sent_at) VALUES (?, ?)",
-            (content_hash, _now_iso()),
+            "DELETE FROM recent_topics WHERE created_at < ?", (before.isoformat(),)
         )
         self._conn.commit()

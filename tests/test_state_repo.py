@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from src.repositories.state_repo import StateRepository
@@ -56,15 +57,29 @@ def test_image_cache_crud(tmp_path: Path) -> None:
         repo.close()
 
 
-def test_sent_hash(tmp_path: Path) -> None:
+def test_recent_topics_window(tmp_path: Path) -> None:
+    """since 이후 텍스트만 조회된다."""
     repo = StateRepository(tmp_path / "s.db")
     try:
-        assert repo.was_sent("hash-x") is False
-        repo.mark_sent("hash-x")
-        assert repo.was_sent("hash-x") is True
-        # 중복 mark_sent 허용 (IGNORE)
-        repo.mark_sent("hash-x")
-        assert repo.was_sent("hash-x") is True
+        t0 = datetime(2026, 7, 13, 0, 0, tzinfo=UTC)
+        repo.add_recent_topics(["삼성전자 실적", "환율 급등"], t0)
+        got = repo.get_recent_topic_texts(t0 - timedelta(hours=1))
+        assert set(got) == {"삼성전자 실적", "환율 급등"}
+        # since가 저장 시각보다 뒤면 0건(창 밖)
+        assert repo.get_recent_topic_texts(t0 + timedelta(hours=1)) == []
+    finally:
+        repo.close()
+
+
+def test_recent_topics_prune(tmp_path: Path) -> None:
+    """before보다 오래된 행은 삭제된다."""
+    repo = StateRepository(tmp_path / "s.db")
+    try:
+        t0 = datetime(2026, 7, 13, 0, 0, tzinfo=UTC)
+        repo.add_recent_topics(["old"], t0)
+        repo.add_recent_topics(["new"], t0 + timedelta(hours=25))
+        repo.prune_recent_topics(t0 + timedelta(hours=24))
+        assert repo.get_recent_topic_texts(t0 - timedelta(days=1)) == ["new"]
     finally:
         repo.close()
 
