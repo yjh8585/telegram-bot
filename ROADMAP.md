@@ -75,3 +75,14 @@
 - [x] HuggingFace 모델 캐시 (~120MB 절감)
 - [x] 에러 시 봇 자신에게 DM (main.py `_report_error` 구현)
 - **DoD**: GitHub Secrets 등록 후 `workflow_dispatch`로 수동 트리거 → 성공 확인.
+
+## Phase 10 — 실행 간(cross-run) 의미 중복 필터 ✅
+하루 안·날짜 간 반복되는 유사 주제를 요약 전에 제거해 vision·요약 비용을 줄인다.
+- [x] `sent_hash`(미배선 죽은 코드) 제거 → `recent_topics`(text+TTL) 저장소로 대체
+- [x] `src/services/recent_dedup.py` — 최근 발송 토픽과 cosine ≥ 임계값이면 제거, URL 제외
+- [x] 임베딩 모델을 `pre_cluster`와 공유(이중 로드 방지)
+- [x] `main.py` 배선: 저가치 필터 직후 중복 제거 + 발송 후 토픽 기록·프루닝
+- [x] `scripts/validate_recent_dedup.py` — 배포 전 실제 데이터 오탐 검증
+- [x] 검증 결과 임계값 0.90 확정(짧은 글 스퍼리어스 유사도 오탐 회피)
+- **설계·계획**: `docs/specs/2026-07-13-cross-run-dedup-design.md`, `docs/plans/2026-07-13-cross-run-dedup.md`
+- **DoD**: `pytest` 전체 통과 + dry-run에서 `recent-dedup` 로그 확인.

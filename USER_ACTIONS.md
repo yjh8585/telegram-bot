@@ -242,6 +242,29 @@ cron-job.org Job별 설정 → **Notifications** → 실패 시 이메일 알림
 
 ---
 
+## C-6. 실행 간 중복 필터 검증 (배포·임계값 조정 시)
+
+최근 발송 주제와 의미가 비슷한 새 글을 요약 전에 걸러 비용·반복을 줄이는 필터가
+"진짜 새 소식"까지 지우지 않는지 실제 데이터로 확인한다. **Anthropic API 비용 없음**
+(텔레그램 조회 + 로컬 임베딩만).
+
+```bash
+python -m scripts.validate_recent_dedup
+```
+
+- 출력: 최근 48h를 24h 경계로 나눠(memory / new), URL 제거 후 여러 임계값(0.80/0.85/0.90)의
+  제거 건수와 0.85 상세 매칭(제거될 new ↔ 걸린 memory)을 보여준다.
+- 판정: 상세 목록에서 **서로 다른 뉴스가 잘못 걸리면**(오탐) 임계값을 올린다.
+  - `.env`에 `RECENT_DEDUP_THRESHOLD=0.90`(기본값) 유지 또는 상향.
+  - 반대로 반복이 너무 안 걸러지면 `RECENT_DEDUP_THRESHOLD=0.85`로 하향해 관찰.
+  - 기억 창은 `RECENT_DEDUP_WINDOW_HOURS`(기본 24)로 조정.
+- 짧고 모호한 글은 임베딩상 스퍼리어스 유사도를 만들 수 있어, **운영은 원본이 아니라 토픽 요약**을
+  기억으로 비교한다(이 스크립트의 원본 vs 원본 검증보다 안전).
+
+- [ ] 검증 실행 후 오탐 없음 확인 (또는 임계값 조정)
+
+---
+
 ## D. (선택) Shrimp Task Manager MCP 활성화
 
 Claude Code 안에서 Shrimp 명령(`plan_task`, `split_tasks`, ...)을 쓰려면:

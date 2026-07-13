@@ -25,6 +25,7 @@
 - `loguru` 단독 사용. `print` 금지.
 - 민감 정보(토큰·세션 문자열·전화번호)는 로그에 남기지 않는다. 실수 방지용 필터가 필요하면 `src/logger.py`에 추가.
 - API usage 토큰(`log_api_usage`)은 stdout→GitHub Actions 런 로그에만 남는다(로컬 파일 없음). 비용·토큰 분석: `gh run view <id> --log | grep 'usage\['`.
+- 파이프라인 필터(`message_filter`·`recent_dedup`)의 제거 건은 사유·유사도·본문 일부를 INFO 로그로 남긴다(사후 감사). `recent_dedup`는 실행 간 중복 제거로, state.db(`recent_topics`)가 실행 사이 유지됨(Actions 캐시)을 전제로 한다.
 
 ## 아키텍처 (레이어드)
 ```

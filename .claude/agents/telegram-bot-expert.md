@@ -38,6 +38,11 @@ model: inherit
 - 모델: `paraphrase-multilingual-MiniLM-L12-v2` (한국어 품질 양호, ~120MB).
 - 임베딩은 L2 정규화 후 cosine. `DEDUPE_THRESHOLD=0.82` 기본.
 - 병합 알고리즘: 단순 union-find (agglomerative single-linkage와 동치, small N에 충분).
+- **두 용도로 재사용**(모델은 `main._process`에서 1회 생성해 주입, 이중 로드 금지):
+  1. `pre_cluster` — 실행 내 클러스터링.
+  2. `recent_dedup` — 실행 간(cross-run) 의미 중복 필터. 최근 발송 토픽(`recent_topics`)과
+     cosine ≥ `RECENT_DEDUP_THRESHOLD`(기본 0.90)면 요약 전에 제거. 창은 `RECENT_DEDUP_WINDOW_HOURS`(24).
+     **URL은 유사도 판단에서 제외**(링크만 있는 글의 오탐 방지), 본문 빈 글은 무조건 유지.
 
 ### FinanceDataReader
 - 한국: `fdr.DataReader('005930', since, today)` → 마지막 행 Close, 전일 대비.
