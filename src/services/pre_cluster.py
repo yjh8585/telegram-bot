@@ -44,9 +44,14 @@ def _union_find_groups(similarity: NDArray[np.float32], threshold: float) -> lis
 class PreClusterService:
     """임베딩 기반 사전 클러스터링. cosine 유사도 threshold 이상을 병합."""
 
-    def __init__(self, threshold: float, model_name: str = DEFAULT_MODEL_NAME) -> None:
+    def __init__(
+        self,
+        threshold: float,
+        model: SentenceTransformer | None = None,
+        model_name: str = DEFAULT_MODEL_NAME,
+    ) -> None:
         self._threshold = threshold
-        self._model = SentenceTransformer(model_name)
+        self._model = model if model is not None else SentenceTransformer(model_name)
 
     def cluster(self, messages: list[EnrichedMessage]) -> list[PreCluster]:
         if not messages:
