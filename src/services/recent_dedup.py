@@ -19,6 +19,7 @@ from src.dtos import RawMessage
 from src.repositories.state_repo import StateRepository
 
 _DROP_LOG_SNIPPET = 40  # 제거 로그에 남길 본문 길이
+_NEAR_MISS_TOP_N = 3  # 유지분 중 기억과 가장 가까웠던 상위 N건을 진단 로그로 남김(임계값 튜닝용)
 _URL_RE = re.compile(r"https?://\S+")
 
 
@@ -94,7 +95,7 @@ class RecentDedupService:
         drop: set[int],
         best_sim: dict[int, float],
     ) -> list[RawMessage]:
-        """제거 건을 로그로 남기고 유지 목록을 반환."""
+        """제거 건과 유지분 최근접(진단)을 로그로 남기고 유지 목록을 반환."""
         kept: list[RawMessage] = []
         for i, m in enumerate(messages):
             if i not in drop:
@@ -105,7 +106,28 @@ class RecentDedupService:
                 f"[recent-dedup] drop ({m.channel_username}) "
                 f"sim={best_sim.get(i, 0.0):.3f} | {snippet}"
             )
+        self._log_near_misses(messages, drop, best_sim)
         logger.info(
             f"recent-dedup: 총 {len(messages)}건 → 유지 {len(kept)}건(제거 {len(drop)}건)"
         )
         return kept
+
+    def _log_near_misses(
+        self,
+        messages: list[RawMessage],
+        drop: set[int],
+        best_sim: dict[int, float],
+    ) -> None:
+        """유지된 메시지 중 기억과 가장 가까웠던 상위 N건(진단). 임계값·저장방식 튜닝 근거.
+
+        제거는 안 됐지만 반복성이 의심되는 글이 실제 몇 점이었는지 사후 확인용.
+        """
+        kept_sims = sorted(
+            ((best_sim[i], i) for i in best_sim if i not in drop),
+            reverse=True,
+        )
+        for sim, i in kept_sims[:_NEAR_MISS_TOP_N]:
+            snippet = (messages[i].text or "").replace("\n", " ")[:_DROP_LOG_SNIPPET]
+            logger.info(
+                f"[recent-dedup] near ({messages[i].channel_username}) sim={sim:.3f} | {snippet}"
+            )
