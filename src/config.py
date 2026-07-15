@@ -11,9 +11,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
 
 # 수집 대상 채널 (t.me/<username> 기준).
-# 코인 채널(seaotterbtc, darthacking)·비활성 채널(desperatestudycafe) 제외 → 4개.
+# 코인 채널(seaotterbtc, darthacking)·비활성 채널(desperatestudycafe) 제외.
+# FastStockNews는 투자뉴스 범위가 너무 넓어 개인 관심사와 맞지 않아 제외(2026-07-15).
 CHANNELS: tuple[str, ...] = (
-    "FastStockNews",
     "Yeouido_Lab",
     "TNBfolio",
     "triple_stock",

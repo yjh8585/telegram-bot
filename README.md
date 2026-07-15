@@ -1,9 +1,8 @@
 # 텔레그램 채널 요약 봇
 
-관심 텔레그램 채널 4개의 최신 메시지를 하루 4회(07:30 / 11:00 / 15:00 / 18:00 KST) 수집·중복 통합·요약하여 본인 계정(@yjh8585)으로 DM 전송.
+관심 텔레그램 채널 3개의 최신 메시지를 하루 4회(07:30 / 11:00 / 15:00 / 18:00 KST) 수집·중복 통합·요약하여 본인 계정(@yjh8585)으로 DM 전송.
 
 ## 대상 채널
-- [@FastStockNews](https://t.me/FastStockNews)
 - [@Yeouido_Lab](https://t.me/Yeouido_Lab)
 - [@TNBfolio](https://t.me/TNBfolio)
 - [@triple_stock](https://t.me/triple_stock)
