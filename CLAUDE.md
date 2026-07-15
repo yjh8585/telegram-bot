@@ -26,6 +26,9 @@
 - 민감 정보(토큰·세션 문자열·전화번호)는 로그에 남기지 않는다. 실수 방지용 필터가 필요하면 `src/logger.py`에 추가.
 - API usage 토큰(`log_api_usage`)은 stdout→GitHub Actions 런 로그에만 남는다(로컬 파일 없음). 비용·토큰 분석: `gh run view <id> --log | grep 'usage\['`.
 - 파이프라인 필터(`message_filter`·`recent_dedup`)의 제거 건은 사유·유사도·본문 일부를 INFO 로그로 남긴다(사후 감사). `recent_dedup`는 실행 간 중복 제거로, state.db(`recent_topics`)가 실행 사이 유지됨(Actions 캐시)을 전제로 한다.
+- 채널별 비용 귀속: `message_filter` drop 로그엔 **채널명이 있어** `수집−제거`로 채널별
+  필터 통과 수를 복원할 수 있다. 반면 `usage[vision]`·`usage[summarize]`엔 채널명이 없어
+  채널별 분해는 불가(필요 시 `enrichment.py`에 채널명 로깅 추가).
 
 ## 아키텍처 (레이어드)
 ```
@@ -48,6 +51,8 @@ main.py  (진입점·오케스트레이션)
 - `pytest` 필수. 새 기능에는 테스트 동반.
 - 외부 호출은 모두 mock(`respx`, `unittest.mock`).
 - 포맷터는 `syrupy` 스냅샷 테스트로 회귀 방지.
+- 전체 실행 ~100s(sentence-transformers 로딩). Bash 도구 기본 타임아웃(120s) 경계라
+  콜드 캐시인 세션 첫 실행은 초과한다 — `timeout` 상향 또는 백그라운드 실행.
 
 ## 커밋
 - 커밋 메시지는 **한국어**, 현재형 어미("~추가", "~수정", "~개선").
@@ -68,9 +73,11 @@ main.py  (진입점·오케스트레이션)
 
 ## 비밀 관리
 - `.env`, `*.session`, `state/*.db` 절대 커밋 금지 (`.gitignore`로 차단).
+- 단 `.gitignore`는 `state/` 전체가 아니라 `state/*.db`만 막는다 —
+  `state/krx_ticker_dict.json`은 추적 대상. `git add .` 대신 파일을 명시 스테이징.
 - GitHub 배포 시 민감값은 **Secrets**로만 전달.
 
 ## 실행
 - 로컬: `make dry-run` / `make run`
 - CI: GitHub Actions (`.github/workflows/collect.yml`). 정각 트리거는 외부 `cron-job.org`가 `workflow_dispatch`로 호출 (GitHub 내장 cron 지연 회피). 운영·점검 절차는 `USER_ACTIONS.md` C-5 참조.
-- 수집 채널은 `src/config.py`의 `CHANNELS` 튜플. 추가·삭제 시 `README.md`·`.claude/agents/telegram-bot-expert.md`의 채널 수 표기도 동기화.
+- 수집 채널은 `src/config.py`의 `CHANNELS` 튜플. 추가·삭제 시 `README.md`·`.claude/agents/telegram-bot-expert.md`의 채널 수 표기도 동기화. `tests/`의 채널명은 임의 픽스처이므로 함께 고치지 않는다.
