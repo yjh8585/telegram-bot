@@ -150,6 +150,40 @@ def test_one_failed_batch_does_not_kill_others(monkeypatch) -> None:  # type: ig
     assert [t.title for t in topics] == ["B"]
 
 
+def test_all_batches_api_error_raises_with_cause() -> None:
+    """모든 배치가 API 예외로 실패해 토픽 0건이면, 진짜 원인을 담아 예외를 올린다.
+
+    빈 리스트로 삼키면 상위(main)에서 'JSON 파싱 확인 필요'라는 엉뚱한 진단이 나가므로,
+    크레딧 소진 등 API 실패 원인을 그대로 노출해야 한다.
+    """
+    import pytest
+
+    from src.services.dedupe_summarizer import SummarizeError
+
+    client = MagicMock()
+    client.messages.create.side_effect = RuntimeError(
+        "Error code: 400 - Your credit balance is too low to access the Anthropic API."
+    )
+    svc = DedupeSummarizerService(client, "model")
+    m1 = _enriched("ch", 1, "삼성전자 실적 서프라이즈")
+    with pytest.raises(SummarizeError) as exc_info:
+        svc.summarize([PreCluster(representative=m1, members=[m1])])
+    assert "credit balance is too low" in str(exc_info.value)
+
+
+def test_parse_zero_topics_without_api_error_returns_empty() -> None:
+    """API 호출은 성공했으나 파싱 결과가 0건이면(무의미 응답) 예외 없이 빈 리스트.
+
+    summarize가 SummarizeError를 올리면 pytest가 에러로 처리해 이 테스트가 실패하므로,
+    'API 실패'와 '파싱 0건'이 구분됨을 보장한다.
+    """
+    client = MagicMock()
+    client.messages.create.return_value = _mock_response("설명만 있고 JSON 배열이 없음")
+    svc = DedupeSummarizerService(client, "model")
+    m1 = _enriched("ch", 1, "x")
+    assert svc.summarize([PreCluster(representative=m1, members=[m1])]) == []
+
+
 def test_same_channel_sources_deduped() -> None:
     """같은 채널의 여러 멤버가 있어도 출처는 채널당 1개로 축약."""
     client = MagicMock()

@@ -21,6 +21,14 @@ _MAX_CLUSTERS_PER_CALL = 25
 _VALID_IMPORTANCE: tuple[Importance, ...] = ("high", "medium", "low")
 
 
+class SummarizeError(RuntimeError):
+    """summarize API 호출이 모두 실패해 토픽을 못 만들었을 때 발생.
+
+    빈 리스트로 삼키면 상위에서 'JSON 파싱 확인 필요'라는 오해 소지 진단이 나가므로,
+    크레딧 소진·인증 오류·레이트리밋 등 진짜 원인을 그대로 담아 전파한다.
+    """
+
+
 def _load_system_prompt() -> str:
     return _PROMPT_PATH.read_text(encoding="utf-8")
 
@@ -145,29 +153,41 @@ class DedupeSummarizerService:
         self._system_prompt = _load_system_prompt()
 
     def summarize(self, clusters: list[PreCluster]) -> list[ClusteredTopic]:
-        """클러스터를 배치로 나눠 요약(출력 8192 토큰 잘림 방지). 배치별 실패는 격리."""
+        """클러스터를 배치로 나눠 요약(출력 8192 토큰 잘림 방지). 배치별 실패는 격리.
+
+        일부 배치만 API 에러면 나머지 결과를 유지(graceful degrade)한다. 단, 모든 배치가
+        API 에러로 토픽 0건이면 진짜 원인을 담아 SummarizeError를 올린다(파싱 0건과 구분).
+        """
         if not clusters:
             return []
         clusters = _cap_clusters(clusters, self._max_topics)
         topics: list[ClusteredTopic] = []
+        last_api_error: Exception | None = None
         for start in range(0, len(clusters), _MAX_CLUSTERS_PER_CALL):
             batch = clusters[start : start + _MAX_CLUSTERS_PER_CALL]
-            topics.extend(self._summarize_batch(batch))
+            try:
+                topics.extend(self._summarize_batch(batch))
+            except Exception as e:
+                logger.error(f"Claude summarize 실패(배치 {len(batch)}건): {e}")
+                last_api_error = e
+        if not topics and last_api_error is not None:
+            raise SummarizeError(
+                f"summarize API 호출 실패로 토픽 0건 — {last_api_error}"
+            ) from last_api_error
         return topics
 
     def _summarize_batch(self, clusters: list[PreCluster]) -> list[ClusteredTopic]:
-        """단일 배치를 1회 호출로 요약. cluster_id는 배치 내 0부터라 출처 매핑이 그대로 맞는다."""
+        """단일 배치를 1회 호출로 요약. cluster_id는 배치 내 0부터라 출처 매핑이 그대로 맞는다.
+
+        API 호출 예외는 여기서 삼키지 않고 호출부(summarize)로 전파해 원인을 보존한다.
+        """
         user_payload = _build_user_payload(clusters, self._rep_text_limit)
-        try:
-            response = self._client.messages.create(
-                model=self._model,
-                max_tokens=_MAX_TOKENS,
-                system=self._system_prompt,
-                messages=[{"role": "user", "content": user_payload}],
-            )
-        except Exception as e:
-            logger.error(f"Claude summarize 실패(배치 {len(clusters)}건): {e}")
-            return []
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=_MAX_TOKENS,
+            system=self._system_prompt,
+            messages=[{"role": "user", "content": user_payload}],
+        )
         log_api_usage("summarize", response)
         raw_text = _extract_text_block(response)
         return _parse_topics(raw_text, clusters)

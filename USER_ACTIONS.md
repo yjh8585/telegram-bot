@@ -277,6 +277,18 @@ Claude Code 안에서 Shrimp 명령(`plan_task`, `split_tasks`, ...)을 쓰려�
 
 ---
 
+## E. 트러블슈팅
+
+### E-1. 봇이 계속 "분석 파이프라인 결과 없음" DM만 보낼 때
+- **증상**: 정상 요약 대신 "분석 파이프라인 결과 없음 …" 에러 DM이 매 실행마다 옴. GitHub Actions 런도 전부 실패(failure).
+- **1순위 원인 = Anthropic 크레딧(잔액) 소진.** Claude API가 `Your credit balance is too low to access the Anthropic API` (HTTP 400)를 반환하면 vision·summarize가 모두 실패해 토픽 0건 → 에러 DM이 발송된다.
+  - 확인: `gh run view <실패한_run_id> --log | grep -i "credit balance"` — 위 문구가 보이면 크레딧 문제 확정.
+  - 이 문구가 없고 대신 "JSON 파싱" 관련이면 Claude 응답 포맷 문제(별건).
+- **복구 (당신이 직접)**: [Anthropic Console → Plans & Billing](https://console.anthropic.com/settings/billing) 에서 크레딧 충전. 다음 정각 실행부터 자동 복구(코드 배포 불필요).
+- **재발 방지 (권장)**: 같은 화면에서 **자동 충전(Auto-reload)** 또는 **잔액 부족 알림(usage/billing alert)** 을 설정해 두면 조용히 바닥나는 걸 막을 수 있다.
+
+---
+
 ## 진행 중 막히면
 
 - 에러 메시지와 함께 Claude에게 공유 → 원인·해결책 제시받기.
