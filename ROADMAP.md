@@ -1,5 +1,9 @@
 # ROADMAP — 텔레그램 채널 요약 봇
 
+> ⛔ **2026-07-27 운영 중단.** 비용 대비 효과가 낮다는 사용자 판단으로 발송을 멈췄다.
+> GitHub Actions 워크플로가 `disabled_manually` 상태이며, 아래 미완료 Phase는 **재개 시에만** 유효하다.
+> 재개·잔여 수동 작업은 [`USER_ACTIONS.md`](./USER_ACTIONS.md) 최상단 참조.
+
 각 Phase의 완료 기준(DoD)을 명시. 체크박스는 실제 완료 시 업데이트.
 
 ## Phase 0 — 사전 준비 (사용자 수동) ✅

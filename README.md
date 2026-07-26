@@ -1,5 +1,15 @@
 # 텔레그램 채널 요약 봇
 
+> ## ⛔ 운영 중단 (2026-07-27)
+>
+> 비용 대비 효과가 낮다는 판단으로 **발송을 무기한 중단**했다.
+> GitHub Actions 워크플로가 `disabled_manually` 상태이므로 외부 스케줄러가 호출해도 실행되지 않는다 → API 비용 0.
+> 아래 문서는 **재개할 때를 대비한 기록**이며, 현재 동작하는 내용이 아니다.
+>
+> - 재개: `gh workflow enable "Telegram 채널 요약 수집·발송"` + cron-job.org Job 4개 Enable
+> - 잔여 수동 작업·주의사항: [`USER_ACTIONS.md`](./USER_ACTIONS.md) 최상단
+> - ⚠️ `BOT_TOKEN`·`ANTHROPIC_API_KEY`는 VALLEY-AI 프로젝트와 공유하므로 **폐기 금지** (폐기 시 네이버 블로그·valley.town 요약 발송도 함께 중단됨)
+
 관심 텔레그램 채널 3개의 최신 메시지를 하루 4회(07:30 / 11:00 / 15:00 / 18:00 KST) 수집·중복 통합·요약하여 본인 계정(@yjh8585)으로 DM 전송.
 
 ## 대상 채널

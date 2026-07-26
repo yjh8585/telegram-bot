@@ -5,6 +5,40 @@ Claude가 자동화할 수 없는 단계를 모두 여기에 정리했다. **번
 
 ---
 
+## ⛔ 운영 중단 (2026-07-27)
+
+**비용 대비 효과가 낮다는 사용자 판단으로 텔레그램 채널 요약 발송을 중단했다.**
+아래 A~C 절차는 **재개할 때만** 유효하다.
+
+- [x] GitHub Actions 워크플로 `Telegram 채널 요약 수집·발송` 비활성화 (`disabled_manually`)
+  - 이 상태에서는 외부에서 `workflow_dispatch`를 호출해도 GitHub이 거부한다 → 실행·비용 0
+- [ ] **cron-job.org의 이 봇용 Job 4개 비활성화** (사용자 직접 수행 — 아래 참조)
+
+### 남은 수동 작업: cron-job.org Job 끄기
+
+워크플로를 껐어도 cron-job.org는 하루 4번 계속 호출을 시도하고 **실패(4xx)로 기록**된다.
+비용은 발생하지 않지만 실패 알림이 쌓이므로 Job 자체를 꺼두는 편이 깔끔하다.
+
+1. https://cron-job.org 로그인 → 대시보드
+2. 이 봇용 Job 4개(morning / late_morning / afternoon / evening)를 **Disable**
+3. ⚠️ **VALLEY-AI 프로젝트 Job이 있다면 절대 건드리지 말 것** — 그쪽은 계속 운영한다
+
+### 재개하려면
+
+```bash
+gh workflow enable "Telegram 채널 요약 수집·발송"
+```
+그 후 cron-job.org Job 4개를 다시 Enable.
+
+### ⚠️ 폐기하면 안 되는 것
+
+`BOT_TOKEN`·`BOT_CHAT_ID`는 **VALLEY-AI 프로젝트가 같은 값을 공유**한다.
+이 봇을 완전히 접더라도 BotFather에서 봇을 삭제하거나 토큰을 재발급하면
+VALLEY-AI(네이버 블로그 ranto28 + valley.town 요약) 발송이 함께 끊긴다.
+`ANTHROPIC_API_KEY`도 VALLEY-AI가 사용하므로 폐기 금지.
+
+---
+
 ## A. 계정·API 키 발급 (한 번만)
 
 ### A-1. Python 3.12 설치 확인

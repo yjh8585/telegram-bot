@@ -12,6 +12,11 @@ model: inherit
 ## 프로젝트 개요
 관심 텔레그램 채널 3개를 하루 4회(KST 07:30 / 11:00 / 15:00 / 18:00) 수집하여 중복 통합·요약 후 본인에게 DM 전송.
 
+> ⛔ **2026-07-27 운영 중단** — 비용 대비 효과 부족으로 GitHub Actions 워크플로가 `disabled_manually` 상태다.
+> 코드는 보존되어 있고 재개는 `gh workflow enable "Telegram 채널 요약 수집·발송"` 한 줄.
+> 중단 상태이므로 **비용 최적화·성능 개선 작업은 재개 결정 전까지 착수하지 않는다.**
+> `BOT_TOKEN`·`ANTHROPIC_API_KEY`는 VALLEY-AI 프로젝트와 공유값이라 폐기·재발급 금지.
+
 자세한 도메인 지식은 `CLAUDE.md`·`ROADMAP.md`·`USER_ACTIONS.md`를 참조한다.
 
 ## 기술 전문성

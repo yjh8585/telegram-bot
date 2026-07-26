@@ -78,6 +78,10 @@ main.py  (진입점·오케스트레이션)
 - GitHub 배포 시 민감값은 **Secrets**로만 전달.
 
 ## 실행
+> ⛔ **2026-07-27 운영 중단** — 비용 대비 효과 부족으로 GitHub Actions 워크플로를 `disabled_manually` 상태로 껐다.
+> 코드는 그대로 두었고 `gh workflow enable "Telegram 채널 요약 수집·발송"` 한 번으로 재개된다. 상세는 `USER_ACTIONS.md` 최상단.
+> `BOT_TOKEN`·`ANTHROPIC_API_KEY`는 VALLEY-AI 프로젝트와 공유하므로 폐기 금지.
+
 - 로컬: `make dry-run` / `make run`
 - CI: GitHub Actions (`.github/workflows/collect.yml`). 정각 트리거는 외부 `cron-job.org`가 `workflow_dispatch`로 호출 (GitHub 내장 cron 지연 회피). 운영·점검 절차는 `USER_ACTIONS.md` C-5 참조.
 - 수집 채널은 `src/config.py`의 `CHANNELS` 튜플. 추가·삭제 시 `README.md`·`.claude/agents/telegram-bot-expert.md`의 채널 수 표기도 동기화. `tests/`의 채널명은 임의 픽스처이므로 함께 고치지 않는다.
